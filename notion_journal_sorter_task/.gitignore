@@ -1,0 +1,4 @@
+authtoken.txt
+pages_cache.pkl
+blank_pages*.txt
+*.log
