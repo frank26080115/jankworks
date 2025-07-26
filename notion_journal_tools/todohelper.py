@@ -198,6 +198,15 @@ def process_todo_blocks(notion: Client, blocks: list[dict], tasks_already_comple
         if link_url is not None and "#" in link_url:
             parent_uuid = link_url.split('#', 1)[1].strip() or None
 
+        dict_key = f"{block_id}" if parent_uuid is None else f"{parent_uuid}#{block_id}"
+
+        if dict_key not in tasks_already_completed and parent_uuid is not None:
+            # check if the parent is a checkbox and if it was checked
+            parent_checked, parent_last_edited = is_todo_block_checked(notion, parent_uuid)
+            if parent_checked:
+                checked = True
+                completed_date = parent_last_edited
+
         if checked:
             if not completed_date:
                 completed_date = myutils.get_last_edited_datetime(block)
@@ -216,8 +225,7 @@ def process_todo_blocks(notion: Client, blocks: list[dict], tasks_already_comple
                     notion.blocks.delete(block_id)
                     continue
 
-            dict_key = f"{block_id}" if parent_uuid is None else f"{parent_uuid}#{block_id}"
-            if block_id not in tasks_already_completed:
+            if dict_key not in tasks_already_completed:
                 if parent_uuid is not None:
                     mark_block_with_check(notion, parent_uuid)
                 if eventlogger is not None:
@@ -330,28 +338,35 @@ Current Paragraph:
 def mark_block_with_check(notion: Client, block_id: str):
     # Fetch the block
     block = notion.blocks.retrieve(block_id)
-    if block.get("type") != "paragraph":
-        #print("This function currently only supports paragraph blocks with rich_text.")
+    block_type = block.get("type")
+
+    if block_type == "to_do":
+        # If it's a to_do item, just check it
+        if not block["to_do"].get("checked", False):
+            notion.blocks.update(block_id, to_do={
+                "rich_text": block["to_do"]["rich_text"],
+                "checked": True
+            })
+        return
+
+    if block_type != "paragraph":
         return
 
     rich_text = block["paragraph"].get("rich_text", [])
     if not rich_text:
-        #print("Block has no rich_text to modify.")
         return
 
     # Get the text content from all segments
     full_text = ''.join([rt.get("plain_text", "") for rt in rich_text])
-
-    checkmarks = {'✅', '☑️', '✔️', '✓', '🗸'} # Set of acceptable checkmark characters
+    checkmarks = {'✅', '☑️', '✔️', '✓', '🗸'}
 
     if full_text and full_text.strip()[-1] in checkmarks:
-        #print("Checkmark already present. No changes made.")
         return
 
     # Append robot + checkmark
     new_text = full_text + " 🤖✅"
 
-    # Rebuild the rich_text array (simple single segment update)
+    # Rebuild the rich_text array
     new_rich_text = [{
         "type": "text",
         "text": {
@@ -359,9 +374,28 @@ def mark_block_with_check(notion: Client, block_id: str):
         }
     }]
 
-    # Update the block
     notion.blocks.update(block_id, paragraph={"rich_text": new_rich_text})
-    #print("Block updated with 🤖✅")
+
+def is_todo_block_checked(notion: Client, block_id: str) -> tuple[bool, datetime | None]:
+    """
+    Returns a tuple:
+    - True if the block is a to_do block and is checked, False otherwise.
+    - A datetime object representing the last edited time, or None if unavailable.
+    """
+    block = notion.blocks.retrieve(block_id)
+    last_edited_str = block.get("last_edited_time")
+    last_edited = None
+
+    if last_edited_str:
+        try:
+            last_edited = datetime.fromisoformat(last_edited_str.replace("Z", "+00:00"))
+        except Exception:
+            pass
+
+    if block.get("type") == "to_do":
+        return block["to_do"].get("checked", False), last_edited
+
+    return False, last_edited
 
 def filter_recent_notion_blocks(token: str, data: set | dict, max_age_months: int = 3):
     notion = Client(auth=token)
