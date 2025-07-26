@@ -44,15 +44,22 @@ def get_todo_blocks(token: str, page_id: str) -> list[dict]:
 
     return todos
 
-def create_todo_blocks_from_journal_paragraph(openai_client, block: dict, page_uuid: str, title_pathlike: str, prev_paragraph: str | None = None) -> list[dict]:
+def create_todo_blocks_from_journal_paragraph(openai_client, block: dict, page_uuid: str, p_text: str, title_pathlike: str, prev_paragraph: str | None = None) -> list[dict]:
     """
     Given a Notion paragraph block from a journal page, generate a list of valid to_do blocks,
     each ending with a link back to the source paragraph and an embedded timestamp.
     """
+
+    if datetime.fromisoformat(block.get("created_time").replace("Z", "+00:00")) > datetime(2025, 7, 25, tzinfo=timezone.utc):
+        # starting from this point in time, I will explicitly mark items that I want this tool to process with "TODO", ignore everything else
+        # this will cut down on accidental parsing of instructional documentation and other such pages where things sound like TODO tasks when they are not
+        if "TODO" not in p_text and "todo" not in prev_paragraph:
+            return []
+
     todos = extract_todos_from_paragraph(
         openai_client,
         title_pathlike=title_pathlike,
-        paragraph_text=myutils.get_rich_text_content(block),
+        paragraph_text=p_text,
         prev_paragraph=prev_paragraph
     )
 

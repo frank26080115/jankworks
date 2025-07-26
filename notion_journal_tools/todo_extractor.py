@@ -104,7 +104,7 @@ def main():
                     print(".", end="", flush=True)
 
                     try:
-                        todo_blocks = todohelper.create_todo_blocks_from_journal_paragraph(openai_client, block, page_id, title_pathlike, prev_paragraph)
+                        todo_blocks = todohelper.create_todo_blocks_from_journal_paragraph(openai_client, block, page_id, paragraph_text, title_pathlike, prev_paragraph)
                         if todo_blocks:
                             pageutils.append_blocks_to_page(notion_token, MASTER_TODO_PAGE_ID, todo_blocks, eventlogger = simplelogger)
                         # mark as already processed so we don't waste tokens redoing it
