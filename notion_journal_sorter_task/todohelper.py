@@ -279,17 +279,18 @@ def extract_todos_from_paragraph(client, title_pathlike: str, paragraph_text: st
 
     system_prompt = (
         "You are a helpful assistant extracting actionable TODO items from journal entries.\n"
-        "You will be given a journal path (like a folder structure), the current paragraph, "
+        "You will be given a document path (like a folder structure), the current paragraph, "
         "and the previous paragraph.\n\n"
         "Your task is to extract all actionable TODOs **only from the current paragraph**. "
         "Use the previous paragraph only for context or clarification.\n"
         "If the item has hints that the TODO is completed (such as strikethrough formatting, the word DONE or FINISHED being emphasized, etc), then ignore the item.\n"
+        "If the document path actually sounds like the page is an instructional documentation instead of a journal, then simply reply 'NONE', because those documents will be filled with things that sound like tasks.\n"
         "Each TODO output should be a clear, one-sentence item written in the imperative or future tense. End it with an appropriate (and short) context hint using the journal path (which might contain a project name somewhere) within parentheses.\n"
         "Return them as a numbered or bulleted list. If there are no TODOs, reply with 'NONE'."
     )
 
     user_prompt = f"""\
-Journal Path: {title_pathlike}
+Document Path: {title_pathlike}
 
 Previous Paragraph:
 {prev_paragraph or "(none)"}
