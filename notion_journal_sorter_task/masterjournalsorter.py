@@ -1,6 +1,6 @@
 from logger_setup import logger
 from notion_client import Client
-from notion_auth_token_reader import AuthTokenFileReader
+from notion_authtoken_reader import AuthTokenFileReader
 from datetime import datetime
 import pageutils
 import myutils

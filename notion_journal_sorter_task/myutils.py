@@ -1,4 +1,9 @@
 from logger_setup import logger
+import os, time, pickle
+from datetime import datetime, timedelta
+from dateutil import parser
+import re
+from typing import Dict, TypeVar
 
 def unshorten_id(short_id: str) -> str:
     """
@@ -23,8 +28,6 @@ def shorten_id(uuid: str) -> str:
         str: The shortened ID with hyphens removed
     """
     return uuid.replace("-", "")
-
-from typing import Dict, TypeVar
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -73,13 +76,9 @@ def fuzzy_match_tag(needle: str, uid_to_tag: Dict[str, str], min_score: int = 85
             best_tag = tag
 
     if best_score >= min_score:
-        return (best_uid, best_tag)
+        return best_uid, best_tag
 
-    return (None, None)
-
-from dateutil import parser
-from datetime import datetime
-import re
+    return None, None
 
 def parse_fuzzy_date(text: str) -> datetime:
     """
@@ -94,7 +93,7 @@ def parse_fuzzy_date(text: str) -> datetime:
     """
     try:
         return parser.parse(text.strip(), dayfirst=False)
-    except Exception as e1:
+    except Exception:
         try:
             match = re.search(r"\b(\d{4})\b", text)
             if match:
@@ -104,8 +103,8 @@ def parse_fuzzy_date(text: str) -> datetime:
                 date_part = text
 
             return parser.parse(date_part.strip(), dayfirst=False)
-        except Exception as e2:
-            logger.warning(f"Could not parse date from heading: '{text}'. Using today. Error: {e2}")
+        except Exception as e:
+            logger.warning(f"Could not parse date from heading: '{text}'. Using today. Error: {e}")
             return datetime.today()
 
 def truncate_preview(text: str, max_length: int = 64) -> str:
@@ -143,5 +142,162 @@ def is_nonempty_block(block):
         for t in rich_text
     )
 
+def is_recent_block(block, months=2):
+    created_time_str = block.get("created_time")
+    if not created_time_str:
+        return False
+    created_time = datetime.fromisoformat(created_time_str.rstrip("Z"))
+    return created_time >= datetime.now() - timedelta(days=30 * months)
+
 def has_real_content(under_blocks):
     return any(is_nonempty_block(b) for b in under_blocks)
+
+def get_rich_text_content(block: dict) -> str:
+    """
+    Extract and concatenate all rich_text fragments from a Notion block.
+    Includes fallback handling for mentions and equations.
+    """
+    block_type = block.get("type")
+    data = block.get(block_type, {})
+    rich_text = data.get("rich_text", [])
+
+    parts = []
+
+    for span in rich_text:
+        t = span.get("type")
+        if t == "text":
+            text = span["text"]["content"].strip()
+            if len(text.strip()) > 0:
+                annotations = span.get("annotations", {})
+                if annotations.get("strikethrough"):
+                    text = f"~~{text}~~"
+            parts.append(text)
+        elif t == "mention":
+            m = span["mention"]
+            if "user" in m:
+                parts.append(f"@{m['user'].get('name', 'user')}")
+            elif "page" in m:
+                parts.append("[page mention]")
+            elif "date" in m:
+                parts.append(m["date"].get("start", "[date]"))
+            else:
+                parts.append("[mention]")
+        elif t == "equation":
+            m = span["equation"]
+            parts.append(m["equation"].get("expression", "[equation]"))
+        else:
+            parts.append(f"[{t}]")
+
+    return ("".join(parts)).strip()
+
+def load_cache_set(path):
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+    return set()
+
+def load_cache_dict(path):
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+    return dict()
+
+def get_last_edited_datetime(block: dict) -> datetime:
+    """
+    Extracts the 'last_edited_time' from a Notion block object and returns it as a Python datetime object.
+    Assumes the timestamp is in ISO 8601 format with 'Z' for UTC (e.g., "2025-07-25T17:04:11.000Z").
+    """
+    iso_string = block.get("last_edited_time")
+    if not iso_string:
+        return None
+
+    # Replace 'Z' with '+00:00' for proper ISO 8601 parsing in Python
+    return datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
+
+def get_created_time_datetime(block: dict) -> datetime:
+    """
+    Extracts the 'created_time' from a Notion block object and returns it as a Python datetime object.
+    Assumes the timestamp is in ISO 8601 format with 'Z' for UTC (e.g., "2025-07-25T17:04:11.000Z").
+    """
+    iso_string = block.get("created_time")
+    if not iso_string:
+        return None
+
+    # Replace 'Z' with '+00:00' for proper ISO 8601 parsing in Python
+    return datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
+
+def normalize_checkboxes(text: str, empty_box: str = "☐", checked_box: str = "☑", checkmark: str = "✓") -> str:
+    # Known variants
+    empty_box_variants = [
+        "☐", "□", "[ ]", "🟦", "🔲"
+    ]
+    checked_box_variants = [
+        "☑", "☒", "[x]", "[X]", "🗹", "🗷", "✅"
+    ]
+    checkmark_variants = [
+        "✓", "✔", "✔️", "🗸"
+    ]
+
+    # Do replacements
+    for symbol in empty_box_variants:
+        text = text.replace(symbol, empty_box)
+
+    for symbol in checked_box_variants:
+        text = text.replace(symbol, checked_box)
+
+    for symbol in checkmark_variants:
+        text = text.replace(symbol, checkmark)
+
+    return text
+
+def find_last_url_in_block(block: dict) -> str | None:
+    """
+    Recursively search a Notion block object for any URLs and return the last one found.
+    Returns None if no URL is found.
+    """
+    url_pattern = re.compile(
+        r'https?://[^\s\'",)}\]]+'
+    )
+    last_url = None
+
+    def search(obj):
+        nonlocal last_url
+        if isinstance(obj, dict):
+            for value in obj.values():
+                search(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                search(item)
+        elif isinstance(obj, str):
+            matches = url_pattern.findall(obj)
+            if matches:
+                last_url = matches[-1]  # Update to most recent found
+
+    search(block)
+    return last_url
+
+def normalize_uuid(s: str) -> str | None:
+    """
+    Extracts and normalizes a UUID from a string.
+    Strips URLs, removes dashes, and converts to lowercase.
+    Returns None if no 32-character hex string is found.
+    """
+    if not isinstance(s, str):
+        return None
+
+    # Match a UUID (with or without dashes)
+    match = re.search(r'[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', s)
+    if not match:
+        return None
+
+    raw = match.group(0).replace("-", "").lower()
+    return raw if len(raw) == 32 else None
+
+def uuids_equal(a: str, b: str) -> bool:
+    """
+    Compares two strings that may represent UUIDs in various formats.
+    Returns True if they are equivalent UUIDs.
+    """
+    norm_a = normalize_uuid(a)
+    norm_b = normalize_uuid(b)
+    return norm_a == norm_b
