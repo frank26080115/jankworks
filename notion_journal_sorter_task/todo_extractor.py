@@ -107,10 +107,10 @@ def main():
                         todo_blocks = todohelper.create_todo_blocks_from_journal_paragraph(openai_client, block, page_id, title_pathlike, prev_paragraph)
                         if todo_blocks:
                             pageutils.append_blocks_to_page(notion_token, MASTER_TODO_PAGE_ID, todo_blocks, eventlogger = simplelogger)
-                            # mark as already processed so we don't waste tokens redoing it
-                            blocks_already_parsed[block_id] = myutils.get_created_time_datetime(block)
-                            with open(os.path.join(CACHE_DIR, BLOCKS_PARSED_FILE), 'wb') as f:
-                                pickle.dump(blocks_already_parsed, f)
+                        # mark as already processed so we don't waste tokens redoing it
+                        blocks_already_parsed[block_id] = myutils.get_created_time_datetime(block)
+                        with open(os.path.join(CACHE_DIR, BLOCKS_PARSED_FILE), 'wb') as f:
+                            pickle.dump(blocks_already_parsed, f)
                     except OpenAIError as e:
                         logger.error(f"Error from OpenAI API: {e}")
 
@@ -126,4 +126,9 @@ def main():
     print(" done!")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.exception(f"Fatal unhandled exception: {e}")
+        import traceback
+        traceback.print_exc()

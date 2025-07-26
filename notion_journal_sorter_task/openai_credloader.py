@@ -1,5 +1,5 @@
 class OpenAICredentialsLoader:
-    def __init__(self, filepath: str = "openai_credentials.txt"):
+    def __init__(self, filepath: str = "openai_apikey.txt"):
         self.filepath = filepath
         self._data = {}
         self.load()

@@ -110,13 +110,14 @@ def parse_todo_metadata(block) -> tuple[str | None, str | None, str | None]:
     Parses rich_text to extract the created date and (if applicable) the completed date.
     Returns (created_date, completed_date) as strings in YYYY-MM-DD format.
     """
-    rich_text = block.get("rich_text", [])
+    to_do = block.get("to_do")
+    rich_text = to_do.get("rich_text", [])
     url = myutils.find_last_url_in_block(block)
 
     combined = "".join(span.get("text", {}).get("content", "") for span in rich_text)
 
     # First pattern: [Xd][YYYY-MM-DD]
-    match_active = re.search(r"\[\d+d\]\[(\d{4}-\d{2}-\d{2})\]", combined)
+    match_active = re.search(r"\[\d+[^\]]*\]\[(\d{4}-\d{2}-\d{2})\]", combined)
     if match_active:
         return match_active.group(1), None, url
 
@@ -135,7 +136,7 @@ def format_todo_marker(created_date: str, checked: bool = False, completed_date:
         marker = f"[□ {created_date} ☑ {completed_date}]"
     else:
         days_since = (datetime.now().date() - datetime.strptime(created_date, "%Y-%m-%d").date()).days
-        marker = f"[{days_since}d][{created_date}]"
+        marker = f"[{days_since} days][{created_date}]"
 
     if url is not None:
         marker += "[link]"
@@ -152,7 +153,7 @@ def format_todo_marker(created_date: str, checked: bool = False, completed_date:
         }
     }
     if url is not None:
-        data["text"]["link"] = url
+        data["text"]["link"] = {"url": url}
     return data
 
 def update_todo_heading(notion: Client, page_id: str):
@@ -169,7 +170,7 @@ def update_todo_heading(notion: Client, page_id: str):
         }
     }
 
-    response = notion.blocks.children.list(block_id=page_id, page_size=1)
+    response = notion.blocks.children.list(block_id=myutils.format_uuid_for_notion(page_id), page_size=1)
     if response["results"] and response["results"][0]["type"] == "heading_3":
         notion.blocks.update(block_id=response["results"][0]["id"], **new_header)
 
@@ -200,11 +201,12 @@ def process_todo_blocks(notion: Client, blocks: list[dict], tasks_already_comple
         if checked:
             if not completed_date:
                 completed_date = myutils.get_last_edited_datetime(block)
-            # if the last editied time field does not exist, fall back to using the current time
+            # if the last edited time field does not exist, fall back to using the current time
             if not completed_date:
                 completed_date = datetime.now()
 
-            completed_date = completed_date.date().isoformat()
+            if isinstance(completed_date, datetime):
+                completed_date = completed_date.date().isoformat()
 
             if delete_old_completed:
                 age = (datetime.now().date() - datetime.strptime(completed_date, "%Y-%m-%d").date()).days
@@ -219,7 +221,7 @@ def process_todo_blocks(notion: Client, blocks: list[dict], tasks_already_comple
                 if parent_uuid is not None:
                     mark_block_with_check(notion, parent_uuid)
                 if eventlogger is not None:
-                    eventlogger.log(f"TODO-TASK-DONE, {block_id}, {myutils.truncate_preview(pageutils.get_block_text_or_type(block))}", dt = completed_date)
+                    eventlogger.log(f"TODO-TASK-DONE, {block_id}, {myutils.truncate_preview(pageutils.get_block_text_or_type(block))}", dt = datetime.fromisoformat(completed_date))
                 if isinstance(tasks_already_completed, set):
                     tasks_already_completed.add(dict_key)
                 elif isinstance(tasks_already_completed, dict):
@@ -256,7 +258,7 @@ def update_todo_page(token: str, page_id: str, tasks_already_completed: set | di
     while True:
         if print_dots:
             print(",", end="", flush=True)
-        resp = notion.blocks.children.list(block_id=page_id, start_cursor=cursor)
+        resp = notion.blocks.children.list(block_id=myutils.format_uuid_for_notion(page_id), start_cursor=cursor)
         blocks.extend(resp["results"])
         if not resp.get("has_more"):
             break
@@ -272,6 +274,9 @@ def extract_todos_from_paragraph(client, title_pathlike: str, paragraph_text: st
 
     Returns a list of one-sentence actionable strings, or an empty list if nothing found.
     """
+
+    title_pathlike = re.sub(r'\b(journal|diary)\b', '', title_pathlike, flags=re.IGNORECASE).strip()
+
     system_prompt = (
         "You are a helpful assistant extracting actionable TODO items from journal entries.\n"
         "You will be given a journal path (like a folder structure), the current paragraph, "
@@ -279,7 +284,7 @@ def extract_todos_from_paragraph(client, title_pathlike: str, paragraph_text: st
         "Your task is to extract all actionable TODOs **only from the current paragraph**. "
         "Use the previous paragraph only for context or clarification.\n"
         "If the item has hints that the TODO is completed (such as strikethrough formatting, the word DONE or FINISHED being emphasized, etc), then ignore the item.\n"
-        "Each TODO output should be a clear, one-sentence item written in the imperative or future tense, with an appropriate (and short) context hint using the journal path.\n"
+        "Each TODO output should be a clear, one-sentence item written in the imperative or future tense. End it with an appropriate (and short) context hint using the journal path (which might contain a project name somewhere) within parentheses.\n"
         "Return them as a numbered or bulleted list. If there are no TODOs, reply with 'NONE'."
     )
 
@@ -294,16 +299,16 @@ Current Paragraph:
 """
 
     try:
-        response = client.ChatCompletion.create(
+        response = client.responses.create(
             model="gpt-4o",  # or "gpt-3.5-turbo"
-            messages=[
-                {"role": "system", "content": system_prompt},
+            input=[
+                {"role": "developer", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.2,
         )
 
-        content = response.choices[0].message.content.strip()
+        content = response.output[0].content[0].text.strip()
 
         if content.upper() == "NONE" or not content:
             return []
@@ -311,7 +316,7 @@ Current Paragraph:
         # Extract lines that look like list items
         todos = []
         for line in content.splitlines():
-            line = line.strip("-•* \t1234567890.)")  # Strip common list indicators
+            line = line.strip("-•* \t1234567890.")  # Strip common list indicators
             if line:
                 todos.append(line)
 
@@ -325,12 +330,12 @@ def mark_block_with_check(notion: Client, block_id: str):
     # Fetch the block
     block = notion.blocks.retrieve(block_id)
     if block.get("type") != "paragraph":
-        print("This function currently only supports paragraph blocks with rich_text.")
+        #print("This function currently only supports paragraph blocks with rich_text.")
         return
 
     rich_text = block["paragraph"].get("rich_text", [])
     if not rich_text:
-        print("Block has no rich_text to modify.")
+        #print("Block has no rich_text to modify.")
         return
 
     # Get the text content from all segments
@@ -339,7 +344,7 @@ def mark_block_with_check(notion: Client, block_id: str):
     checkmarks = {'✅', '☑️', '✔️', '✓', '🗸'} # Set of acceptable checkmark characters
 
     if full_text and full_text.strip()[-1] in checkmarks:
-        print("Checkmark already present. No changes made.")
+        #print("Checkmark already present. No changes made.")
         return
 
     # Append robot + checkmark
@@ -355,7 +360,7 @@ def mark_block_with_check(notion: Client, block_id: str):
 
     # Update the block
     notion.blocks.update(block_id, paragraph={"rich_text": new_rich_text})
-    print("Block updated with 🤖✅")
+    #print("Block updated with 🤖✅")
 
 def filter_recent_notion_blocks(token: str, data: set | dict, max_age_months: int = 3):
     notion = Client(auth=token)

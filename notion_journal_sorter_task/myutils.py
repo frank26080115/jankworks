@@ -3,7 +3,8 @@ import os, time, pickle
 from datetime import datetime, timedelta
 from dateutil import parser
 import re
-from typing import Dict, TypeVar
+from typing import Dict, TypeVar, Tuple, Dict
+from rapidfuzz import fuzz
 
 def unshorten_id(short_id: str) -> str:
     """
@@ -48,9 +49,6 @@ def invert_dict(d: Dict[K, V]) -> Dict[V, K]:
     if len(set(d.values())) != len(d):
         raise ValueError("Cannot invert dictionary with duplicate values.")
     return {v: k for k, v in d.items()}
-
-from typing import Tuple, Dict
-from rapidfuzz import fuzz
 
 def fuzzy_match_tag(needle: str, uid_to_tag: Dict[str, str], min_score: int = 85) -> Tuple[str | None, str | None]:
     """
@@ -275,6 +273,13 @@ def find_last_url_in_block(block: dict) -> str | None:
 
     search(block)
     return last_url
+
+def format_uuid_for_notion(uuid_str: str) -> str:
+    # Ensure it's the right length and all lowercase
+    s = uuid_str.lower().replace('-', '')
+    if len(s) != 32:
+        raise ValueError("UUID must be 32 characters long without hyphens")
+    return f"{s[0:8]}-{s[8:12]}-{s[12:16]}-{s[16:20]}-{s[20:]}"
 
 def normalize_uuid(s: str) -> str | None:
     """

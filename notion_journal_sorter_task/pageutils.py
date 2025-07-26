@@ -297,15 +297,18 @@ def append_blocks_to_page(token: str, page_id: str, blocks: list[dict], eventlog
 
     notion = Client(auth=token)
 
-    for b in blocks:
-        if eventlogger is not None:
-            eventlogger.log(f"TODO-TASK-INSERTED, {b["id"]}, {myutils.truncate_preview(get_block_text_or_type(b))}", dt = myutils.get_created_time_datetime(b))
+    #for b in blocks:
+    #    if eventlogger is not None:
+    #        eventlogger.log(f"TODO-TASK-INSERTED, ????, {myutils.truncate_preview(get_block_text_or_type(b))}", dt = myutils.get_created_time_datetime(b))
 
     try:
-        notion.blocks.children.append(
+        response = notion.blocks.children.append(
             block_id=page_id,
             children=blocks
         )
+        if eventlogger is not None:
+            for b in response["results"]:
+                eventlogger.log(f"TODO-TASK-INSERTED, {b['id']}, {myutils.truncate_preview(get_block_text_or_type(b))}", dt=myutils.get_created_time_datetime(b))
     except Exception as e:
         print(f"Error appending blocks: {e}")
 
