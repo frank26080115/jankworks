@@ -12,13 +12,13 @@ def stabilize_video(input_file, stabilized_file):
     # Generate transform file
     run_ffmpeg([
         "ffmpeg", "-y", "-i", input_file,
-        "-vf", "vidstabdetect=shakiness=5:accuracy=15",
+        "-vf", "vidstabdetect=shakiness=5:accuracy=15:result=transforms.trf",
         "-f", "null", "-"
     ])
     # Apply transforms
     run_ffmpeg([
         "ffmpeg", "-y", "-i", input_file,
-        "-vf", "vidstabtransform=smoothing=30:input=transforms.trf",
+        "-vf", "vidstabtransform=input=transforms.trf:smoothing=100:maxshift=40:maxangle=2:zoom=0.98:optzoom=1:interpol=bicubic",
         "-c:a", "copy", stabilized_file
     ])
     os.remove("transforms.trf")
@@ -31,18 +31,21 @@ def extract_segments(input_file, start_time, end_time, loop_len, mute=False):
     def audio_flags():
         return ["-an"] if mute else ["-c", "copy"]
 
-    loop_len = float(loop_len)
+    loop_len = float(time_to_seconds(loop_len))
 
     run_ffmpeg([
         "ffmpeg", "-y", "-ss", start_time, "-t", f"{loop_len}",
         "-i", input_file, *audio_flags(), "start_1s.mp4"
     ])
+
+    t2 = time_to_seconds(end_time) - loop_len
+
     run_ffmpeg([
-        "ffmpeg", "-y", "-sseof", f"-{loop_len}", "-i", input_file, "-t", f"{loop_len}",
+        "ffmpeg", "-y", "-ss", f"{t2}", "-i", input_file, "-t", f"{loop_len}",
         *audio_flags(), "end_1s.mp4"
     ])
-    middle_start = str(float(start_time) + loop_len)
-    middle_duration = str(float(end_time) - float(start_time) - (2*loop_len))
+    middle_start = str(float(time_to_seconds(start_time)) + loop_len)
+    middle_duration = str(float(time_to_seconds(end_time)) - float(time_to_seconds(start_time)) - (2*loop_len))
     run_ffmpeg([
         "ffmpeg", "-y", "-ss", middle_start, "-t", middle_duration,
         "-i", input_file, *audio_flags(), "middle.mp4"
@@ -119,6 +122,22 @@ def enforce_extension(path: str, ext: str) -> str:
     ext = ext.lower()
     path = pathlib.Path(path)
     return str(path.with_suffix(f".{ext}"))
+
+def time_to_seconds(tstr):
+    if isinstance(tstr, (int, float)):
+        return float(tstr)
+
+    parts = tstr.strip().split(":")
+    parts = [float(p) for p in parts]
+
+    if len(parts) == 1:
+        return parts[0]  # seconds
+    elif len(parts) == 2:
+        return parts[0] * 60 + parts[1]  # MM:SS
+    elif len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]  # HH:MM:SS
+    else:
+        raise ValueError(f"Unrecognized time format: {tstr}")
 
 def main():
     parser = argparse.ArgumentParser(description="Create a seamless video loop with crossfade")
