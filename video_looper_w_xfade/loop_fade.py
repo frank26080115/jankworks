@@ -8,20 +8,27 @@ def run_ffmpeg(cmd):
     print("Running:", ' '.join(cmd))
     subprocess.run(cmd, check=True)
 
-def stabilize_video(input_file, stabilized_file):
+def stabilize_video(input_file, stabilized_file, locked = False):
+    print(f"Performing stabilization, analyzing motion...")
+    tf_file = "transforms.trf"
+    if os.path.exists(tf_file):
+        os.remove(tf_file)
     # Generate transform file
     run_ffmpeg([
         "ffmpeg", "-y", "-i", input_file,
-        "-vf", "vidstabdetect=shakiness=5:accuracy=15:result=transforms.trf",
+        "-vf", f"vidstabdetect=shakiness=10:accuracy=15:result={tf_file}",
         "-f", "null", "-"
     ])
+    print(f"Performing stabilization, applying transformation...")
     # Apply transforms
     run_ffmpeg([
         "ffmpeg", "-y", "-i", input_file,
-        "-vf", "vidstabtransform=input=transforms.trf:smoothing=100:maxshift=40:maxangle=2:zoom=0.98:optzoom=1:interpol=bicubic",
+        "-vf",
+        f"vidstabtransform=input={tf_file}:smoothing=100:maxshift=40:maxangle=2:zoom=0.98:optzoom=1:interpol=bicubic" if not locked else
+        f"vidstabtransform=input={tf_file}:smoothing=0:maxshift=400:maxangle=3:zoom=1:optzoom=0:tripod=1:interpol=bicubic",
         "-c:a", "copy", stabilized_file
     ])
-    os.remove("transforms.trf")
+    print(f"Stabilization Complete")
 
 def extract_segments(input_file, start_time, end_time, loop_len, mute=False):
     for f in ["start_1s.mp4", "middle.mp4", "end_1s.mp4", "crossfade.mp4"]:
@@ -152,15 +159,27 @@ def main():
     #parser.add_argument("--mute", action="store_true", help="Remove audio from final output")
     parser.add_argument("--format", choices=["mp4", "webm", "apng"], default="mp4",
                         help="Final output format (default: mp4)")
-    parser.add_argument("--stabilize", action="store_true", help="Stabilize the input video before processing")
+    parser.add_argument("--stabilize", action="store_true", help="Stabilize the input video before processing (loose)")
+    parser.add_argument("--stabilize_locked", action="store_true", help="Stabilize the input video before processing (locked)")
+    parser.add_argument("--opencv_stab", action="store_true", help="Stabilize the input video, with OpenCV, before processing (locked)")
 
     args = parser.parse_args()
     output_file = enforce_extension(args.output, args.format)
 
     working_input = args.input
-    if args.stabilize:
+    if args.stabilize or args.stabilize_locked or args.opencv_stab:
         stabilized_file = "stabilized_input.mp4"
-        stabilize_video(args.input, stabilized_file)
+        if os.path.exists(stabilized_file):
+            os.remove(stabilized_file)
+        if not args.opencv_stab:
+            stabilize_video(args.input, stabilized_file, locked = args.stabilize_locked)
+        else:
+            import opencv_stab
+            stabilized_file_2 = "ocv_stab.mp4"
+            if os.path.exists(stabilized_file_2):
+                os.remove(stabilized_file_2)
+            opencv_stab.stabilize_to_first_frame(working_input, stabilized_file_2)
+            stabilize_video(stabilized_file_2, stabilized_file, locked = False)
         working_input = stabilized_file
 
     extract_segments(working_input, args.start, args.end, args.looplen, mute=True)
@@ -183,9 +202,6 @@ def main():
         convert_to_webm(temp_file, output_file)
     elif args.format == "apng":
         convert_to_apng(temp_file, output_file)
-
-    if args.stabilize and os.path.exists("stabilized_input.mp4"):
-        os.remove("stabilized_input.mp4")
 
     print(f"✅ Done. Output saved to {output_file}")
 
