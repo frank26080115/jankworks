@@ -197,7 +197,9 @@ def main():
     if args.format == "mp4":
         if os.path.exists(output_file):
             os.remove(output_file)
-        os.rename(temp_file, output_file)
+        #os.rename(temp_file, output_file)
+        import shutil
+        shutil.move(temp_file, output_file)
     elif args.format == "webm":
         convert_to_webm(temp_file, output_file)
     elif args.format == "apng":
