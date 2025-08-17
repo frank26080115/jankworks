@@ -153,23 +153,23 @@ class FotoPhrame(object):
             if last_key == key:
                 print("toggle IP on image")
                 self.clock_draw.show_ip()
-        elif key == 0x65:
+        elif key == ord('e'):
             print('E key, edit mode')
             if self.edit_mode == False:
                 cv2.setMouseCallback(self.wndname, mouse_clicked)
             self.edit_mode = True
-        elif (key == 0x2D or key == 0x2B or key == 0x66 or key == 0x73) and self.edit_mode:
+        elif (key == ord('-') or key == ord('+') or key == ord('f') or key == ord('s')) and self.edit_mode:
             self.prev_frame_time = datetime.datetime.now()
-            if key == 0x2D:
+            if key == ord('-'):
                 print("clock edit corner")
                 self.clock_draw.change_corner()
-            elif key == 0x2B:
+            elif key == ord('+'):
                 print("clock edit size")
                 self.clock_draw.change_size()
-            elif key == 0x66:
+            elif key == ord('f'):
                 print("clock edit font")
                 self.clock_draw.change_font()
-            elif key == 0x73:
+            elif key == ord('s'):
                 print("clock edit shadow")
                 self.clock_draw.change_shadow()
         elif key == 0x74 and self.edit_mode:
