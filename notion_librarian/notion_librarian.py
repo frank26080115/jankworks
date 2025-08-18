@@ -14,14 +14,10 @@ from openai_credloader import OpenAICredentialsLoader
 from chunker import notion_page_to_h1_chunks
 from notiondata import NotionTextChunk
 from textsplitter import windowed_markdown_chunks
-from llmcall import judge_and_answer_structured
+from llmcall import judge_and_answer_structured, judge_and_answer_oss, ensure_ollama_up
 from notion_breadcrumb import get_breadcrumb_with_block_text
 from evidencelink import find_block_by_evidence
 
-openai_apikey = OpenAICredentialsLoader().get_api_key()
-os.environ["OPENAI_API_KEY"] = openai_apikey
-from openai import OpenAI, OpenAIError
-openai_client = OpenAI()
 notion_token = AuthTokenFileReader().get_token()
 
 class LibrarianAnswer(object):
@@ -61,6 +57,14 @@ def llm_consumer_worker(
     Consume NotionTextChunk items and send to your LLM.
     """
 
+    if "gpt-oss" not in llm_model:
+        openai_apikey = OpenAICredentialsLoader().get_api_key()
+        os.environ["OPENAI_API_KEY"] = openai_apikey
+        from openai import OpenAI, OpenAIError
+        llm_client = OpenAI()
+    else:
+        ensure_ollama_up()
+
     start_date = datetime.now()
 
     answers = []
@@ -71,7 +75,10 @@ def llm_consumer_worker(
         if item.is_eof():
             in_q.task_done()
             break
-        answer = judge_and_answer_structured(openai_client, item.text, prompt, llm_model) # this returns a JSON object with our custom structure
+        if "gpt-oss" not in llm_model:
+            answer = judge_and_answer_structured(llm_client, item.text, prompt, llm_model) # this returns a JSON object with our custom structure
+        else:
+            answer = judge_and_answer_oss(item.text, prompt)
         if answer.get("related", "").upper() == "YES":
             ans = LibrarianAnswer(answer, item)
             answers.append(ans)
@@ -104,9 +111,9 @@ def llm_consumer_worker(
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Notion Librarian Answer</title>
-<link rel="stylesheet" href="./web/styles.css" />
-<script src="./web/markdown-it.min.js"></script>
-<script src="./web/purify.min.js"></script>
+<link rel="stylesheet" href="../web/style.css" />
+<script src="../web/markdown-it.min.js"></script>
+<script src="../web/purify.min.js"></script>
 </head><body>\n
 """
     fname = "answer-" + start_date.strftime("%Y-%m-%d-%H-%M-%S") + ".html"
@@ -125,7 +132,10 @@ def main():
     p.add_argument("url", help="URL (or string) containing the Notion page UUID")
     p.add_argument("prompt", help="Prompt to send alongside Notion content")
 
-    p.add_argument("--model", default="gpt-5-nano", help="LLM model name")
+    p.add_argument("--model", default=
+        #"gpt-5-nano"
+        "gpt-oss-20b"
+           , help="LLM model name")
     p.add_argument("--max-batch-tokens", type=int, default=6000, help="Approx token cap per LLM request")
 
     args = p.parse_args()
