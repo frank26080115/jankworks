@@ -35,8 +35,9 @@ class ProgressTracker(object):
             if queue_cnt > self.max_cnt:
                 self.max_cnt = queue_cnt
         if self.max_cnt is not None:
-            fraction_str = f"{self.cnt}/{self.max_cnt}"
-            percentage = round(100 * (self.cnt / self.max_cnt))
+            max_cnt = max(1, self.max_cnt - 1)
+            fraction_str = f"{self.cnt}/{max_cnt}"
+            percentage = round(100 * (self.cnt / max_cnt))
         else:
             fraction_str = f"{queue_cnt}/???"
             percentage = "???"

@@ -30,10 +30,11 @@ def load_page_cache(page_id):
     return None
 
 class NotionTextChunk(object):
-    def __init__(self, page_id:str, block_id:str, text:str):
+    def __init__(self, page_id:str, block_id:str, text:str, score:float = 0):
         self.page_id = myutils.shorten_id(page_id)
         self.block_id = myutils.shorten_id(block_id)
         self.text = text
+        self.score = score
 
     def get_url(self):
         tail = "" if not self.block_id else f"#{self.block_id}"
