@@ -1,0 +1,18 @@
+  :root { --bg:#0b0d10; --fg:#e8eef2; --muted:#9aa5b1; --card:#131820; --acc:#58c4ff; --ok:#29d398; --border:#263142; }
+  html,body { background:var(--bg); color:var(--fg); margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial, sans-serif; }
+  header { padding:20px 24px; border-bottom:1px solid var(--border); }
+  header h1 { margin:0; font-size:20px; }
+  main { padding:24px; display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px 18px; box-shadow:0 6px 18px rgba(0,0,0,0.25); }
+  .meta { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .badge { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--border); }
+  .yes { background:rgba(41,211,152,0.12); color:var(--ok); border-color:rgba(41,211,152,0.35); }
+  .muted { color:var(--muted); }
+  .q { margin:0; font-weight:600; font-size:15px; }
+  .doc a { color:var(--acc); text-decoration:none; } .doc a:hover { text-decoration:underline; }
+  details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); }
+  .markdown h1,.markdown h2,.markdown h3 { margin:0.6em 0 0.3em; }
+  .markdown p { margin:0.4em 0; }
+  .markdown code { background:#0b1220; padding:2px 6px; border-radius:6px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .markdown pre { background:#0b1220; padding:12px; overflow:auto; border-radius:10px; }
+  .markdown a { color:var(--acc); }
