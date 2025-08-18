@@ -16,6 +16,7 @@ from notiondata import NotionTextChunk
 from textsplitter import windowed_markdown_chunks
 from llmcall import judge_and_answer_structured
 from notion_breadcrumb import get_breadcrumb_with_block_text
+from evidencelink import find_block_by_evidence
 
 openai_apikey = OpenAICredentialsLoader().get_api_key()
 os.environ["OPENAI_API_KEY"] = openai_apikey
@@ -48,6 +49,7 @@ def notion_producer_worker(
     page_id = myutils.unshorten_id(myutils.shorten_id(myutils.extract_uuids(page_url)[0]))
     notion_page_process(notion_token, page_id, out_q, max_batch_tokens)
     out_q.put(NotionTextChunk("eof", "eof", "eof"))
+    print(f"FINISHED NOTION SCAN")
 
 def llm_consumer_worker(
     prompt: str,
@@ -74,8 +76,8 @@ def llm_consumer_worker(
             ans = LibrarianAnswer(answer, item)
             answers.append(ans)
             url = item.get_url()
-            print(url)
-            print(answer.get("answer", ""))
+            print(f"ANSWER URL: {url}")
+            print(f"ANSWER TXT: {answer.get("answer", "")}")
             breadcrumb = get_breadcrumb_with_block_text(notion_token, item.page_id, item.block_id)
             html += f"<div class='answer-outer'><fieldset class='answer'><legend><a href='{url}' target='_blank'>{breadcrumb}</a></legend>"
             html += "<div class='answer-inner-1'>\n"
@@ -84,9 +86,14 @@ def llm_consumer_worker(
             evidences = answer.get("evidence", "")
             if len(evidences) > 0:
                 for ev in evidences:
-                    if ev:
-                        if ev.strip():
-                            html += f"<div class='answer-inner-evidence'>{ev}</div>\n"
+                    if ev and ev.strip():
+                        ev_block_id = find_block_by_evidence(notion_token, item.page_id, ev, item.block_id)
+                        if ev_block_id is not None:
+                            ev_url = f"https://www.notion.so/{myutils.shorten_id(item.page_id)}#{myutils.shorten_id(ev_block_id)}"
+                            ev_text = f"{ev} [<a href='{ev_url}' target='_blank'>link</a>]"
+                        else:
+                            ev_text = f"{ev}"
+                        html += f"<div class='answer-inner-evidence'>{ev_text}</div>\n"
             html += "\n</fieldset></div>\n"
     if len(answers) <= 0:
         html += f"<h3>Sorry! No Results</h3>\n"
@@ -142,8 +149,6 @@ def main():
     cons.start()
 
     prod.join()
-    # Wait until consumer drains queue (including sentinel)
-    q.join()
     cons.join()
 
     return 0
