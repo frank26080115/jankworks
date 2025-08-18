@@ -152,8 +152,6 @@ def llm_consumer_worker(
                 if llm_can_start:
                     break
 
-        progtracker.on_inference(in_q.qsize())
-
         while True:
             item = in_q.get()
             if item.is_eof():

@@ -34,6 +34,10 @@ class ProgressTracker(object):
         if self.max_cnt is not None:
             if queue_cnt > self.max_cnt:
                 self.max_cnt = queue_cnt
+
+        if self.max_cnt is not None and self.max_cnt < 5:
+            return
+
         if self.max_cnt is not None:
             max_cnt = max(1, self.max_cnt - 1)
             fraction_str = f"{self.cnt}/{max_cnt}"
