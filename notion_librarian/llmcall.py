@@ -106,7 +106,17 @@ def judge_and_answer_oss(question: str, document_text: str) -> dict:
         messages=messages,
         tools=TOOLS,
         tool_choice="auto",     # or: {"type":"function","function":{"name":"return_qa"}} to force
-        temperature=0           # determinism for judging
+        temperature=0,          # determinism for judging
+        extra_body={
+            "options": {
+                "num_ctx": 4096,  # start at 4k–8k; larger = slower
+                "num_gpu": 999,  # offload as much as possible to GPU
+                "main_gpu": 0,  # pick GPU index (0 = first)
+                # "num_thread": 8,    # optional: CPU threads for leftover work
+                # "low_vram": False   # keep default unless you’re tight on VRAM
+            },
+            "keep_alive": "10m"  # keep model resident between calls
+        }
     )
 
     choice = res.choices[0]

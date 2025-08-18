@@ -1,0 +1,6 @@
+FROM gpt-oss:20b
+PARAMETER num_gpu 14
+PARAMETER num_ctx 3072
+PARAMETER num_batch 256
+PARAMETER main_gpu 0
+PARAMETER num_thread 12
