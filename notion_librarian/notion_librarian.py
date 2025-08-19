@@ -67,6 +67,7 @@ def notion_producer_worker(
     llm_model: str = "gpt-4o-mini",
     keywords: dict = None,
     superfast: bool = False,
+    timelimit: int = 0,
 ) -> None:
     global llm_can_start
 
@@ -84,16 +85,20 @@ def notion_producer_worker(
 
         if not items:
             pass # do nothing if no results
-        else:
+        elif timelimit <= 0:
             max_score = items[0].score
             if max_score > 0:
                 cutoff = (0.8 if superfast else 0.5) * max_score  # ≥80% of the best score
                 filtered = [it for it in items if it.score >= cutoff]
-                top10 = filtered[:10]
-                for item in top10:
+                #top10 = filtered[:10]
+                for item in filtered:
                     out_q.put(item)
                     progtracker.on_add()
-            # else do nothing, no results
+        else:
+            # there is a time limit, so just put the ordered list back into the queue
+            for item in items:
+                out_q.put(item)
+                progtracker.on_add()
 
     out_q.put(NotionTextChunk("eof", "eof", "eof"))
     print(f"\nFINISHED NOTION SCAN\n")
@@ -106,6 +111,7 @@ def llm_consumer_worker(
     max_batch_tokens: int = 6000,
     keywords: dict = None,
     superfast: bool = False,
+    timelimit: int = 0,
 ) -> None:
     global llm_client, llm_can_start
     """
@@ -153,6 +159,13 @@ def llm_consumer_worker(
                     break
 
         while True:
+
+            t_now = datetime.now()
+            if timelimit > 0:
+                dt = t_now - start_date
+                if dt.total_seconds() > timelimit * 60:
+                    break
+
             item = in_q.get()
             if item.is_eof():
                 in_q.task_done()
@@ -230,6 +243,7 @@ def main():
         #"gpt-oss-20b-3060"
            , help="LLM model name")
     p.add_argument("--max-batch-tokens", type=int, default=4000, help="Approx token cap per LLM request")
+    p.add_argument("--timelimit", type=int, default=0, help="Total time limit for request in minutes")
     p.add_argument("--prefilter", default=False, action="store_true", help="Pre-filter the Notion page using auto-generated keywords")
     p.add_argument("--superfast", default=False, action="store_true", help="Only do fast keyword search")
 
@@ -269,13 +283,13 @@ def main():
     prod = threading.Thread(
         target=notion_producer_worker,
         name="producer",
-        args=(args.url, args.prompt, q, args.max_batch_tokens, args.model, keywords, args.superfast),
+        args=(args.url, args.prompt, q, args.max_batch_tokens, args.model, keywords, args.superfast, args.timelimit),
         daemon=True,
     )
     cons = threading.Thread(
         target=llm_consumer_worker,
         name="consumer",
-        args=(args.prompt, q, args.model, args.max_batch_tokens, keywords, args.superfast),
+        args=(args.prompt, q, args.model, args.max_batch_tokens, keywords, args.superfast, args.timelimit),
         daemon=True,
     )
 
