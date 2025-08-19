@@ -39,7 +39,7 @@ class ProgressTracker(object):
             return
 
         if self.max_cnt is not None:
-            max_cnt = max(1, self.max_cnt - 1)
+            max_cnt = max(1, self.max_cnt)
             fraction_str = f"{self.cnt}/{max_cnt}"
             percentage = round(100 * (self.cnt / max_cnt))
         else:

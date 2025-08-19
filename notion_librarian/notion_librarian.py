@@ -131,7 +131,7 @@ def llm_consumer_worker(
     dirname = "answers"
     os.makedirs(dirname, exist_ok=True)
     fpath = os.path.join(dirname, fname)
-    with open(fpath, "w") as f:
+    with open(fpath, "w", encoding="utf-8") as f:
         f.write(html_head)
         f.write(f"<div class='prompt'><fieldset class='prompt'><legend>Prompt:</legend><div class='prompt-inner'>{prompt}</div></fieldset></div>\n")
 
@@ -168,7 +168,7 @@ def llm_consumer_worker(
                 breadcrumb = get_breadcrumb_with_block_text(notion_token, item.page_id, item.block_id)
                 html = f"<div class='answer-outer'><fieldset class='answer'><legend><a href='{url}' target='_blank'>{breadcrumb}</a></legend>"
                 html += "<div class='answer-inner-1'><pre>\n"
-                html += item.text
+                html += myutils.to_html_numeric(item.text)
                 html += "\n</pre></div>\n"
                 html += "\n</fieldset></div>\n"
                 f.write(html)
@@ -191,18 +191,17 @@ def llm_consumer_worker(
                     breadcrumb = get_breadcrumb_with_block_text(notion_token, item.page_id, item.block_id)
                     html = f"<div class='answer-outer'><fieldset class='answer'><legend><a href='{url}' target='_blank'>{breadcrumb}</a></legend>"
                     html += "<div class='answer-inner-1'><pre>\n"
-                    html += answer.get("answer", "")
+                    html += myutils.to_html_numeric(answer.get("answer", ""))
                     html += "\n</pre></div>\n"
                     evidences = answer.get("evidence", "")
                     if len(evidences) > 0:
                         for ev in evidences:
                             if ev and ev.strip():
                                 ev_block_id = find_block_by_evidence(notion_token, item.page_id, ev, item.block_id)
+                                ev_text = myutils.to_html_numeric(ev)
                                 if ev_block_id is not None:
                                     ev_url = f"https://www.notion.so/{myutils.shorten_id(item.page_id)}#{myutils.shorten_id(ev_block_id)}"
-                                    ev_text = f"{ev} [<a href='{ev_url}' target='_blank'>link</a>]"
-                                else:
-                                    ev_text = f"{ev}"
+                                    ev_text += f"&nbsp;[<a href='{ev_url}' target='_blank'>link</a>]"
                                 html += f"<div class='answer-inner-evidence'>{ev_text}</div>\n"
                     html += "\n</fieldset></div>\n"
                     f.write(html)
@@ -211,7 +210,7 @@ def llm_consumer_worker(
                 f.flush()
                 break
         if len(answers) <= 0:
-            html += f"<h3>Sorry! No Results</h3>\n"
+            f.write(f"<h3>Sorry! No Results</h3>\n")
             print("Sorry! No Results")
         f.write("</body></html>")
 

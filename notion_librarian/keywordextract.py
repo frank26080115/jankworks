@@ -41,7 +41,7 @@ def llm_extract_keywords(client: object, question: str, model: str) -> dict:
         tool_choice="auto",
         #temperature=0,
         #max_tokens=256,
-        extra_body={"keep_alive":"10m"}
+        #extra_body={"keep_alive":"10m"}
     )
     call = res.choices[0].message.tool_calls[0]
     return json.loads(call.function.arguments)

@@ -381,3 +381,9 @@ def open_html_new_window(html_path: str) -> bool:
         # Fallback: generic open(new=1) which hints "new window" to some handlers.
         ok = webbrowser.open(url, new=1)
     return ok
+
+def to_html_numeric(s: str) -> str:
+    import html
+    # 1) Escape HTML control chars (&, <, >, ").
+    # 2) Replace all non-ASCII with numeric character references.
+    return html.escape(s, quote=True).encode("ascii", "xmlcharrefreplace").decode("ascii")
