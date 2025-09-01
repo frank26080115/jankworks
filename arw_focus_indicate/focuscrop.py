@@ -410,9 +410,7 @@ def main():
 
     # 3) Crop 640x320 centered on FocusLocation
     #crop, rect = clamp_crop_centered(img, fx, fy, 640, 480)
-    
-    # FocusLocation gives (X, Y, W_full, H_full) where only last two are the spot (full image scale).
-    # Suppose you've already mapped that to (cx, cy) center in visible-raw coordinates:
+
     cx = fx
     cy = fy
     cw = 640
