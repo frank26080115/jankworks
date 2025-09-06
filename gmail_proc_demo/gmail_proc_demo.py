@@ -8,11 +8,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
-from prune_seen import prune_seen
+from seen import SeenManager
 
 # ---- Config ----
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]  # use gmail.modify if you want to add labels, mark read, etc.
-STATE_FILE = "seen.json"
 POLL_SECONDS = 30
 ONLY_INBOX = True
 LOOKBACK_DAYS = 7  # limit to last week
@@ -34,19 +33,6 @@ def gmail_service():
             f.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)
-
-def load_seen() -> list:
-    if os.path.exists(STATE_FILE):
-        try:
-            return json.load(open(STATE_FILE))
-        except Exception:
-            return []
-    return []
-
-def save_seen(seen: list):
-    tmp = seen
-    with open(STATE_FILE, "w") as f:
-        json.dump(tmp, f)
 
 def gmail_date_7d_query() -> str:
     """
@@ -142,8 +128,9 @@ def process_email(msg: Dict[str, Any]):
 
 def main():
     svc = gmail_service()
-    prune_seen()
-    seen = load_seen()
+    seen = SeenManager()
+    seen.prune()
+    seen.load()
     print("Gmail watcher running (last 7 days, INBOX). Ctrl+C to stop.\n")
 
     while True:
@@ -151,7 +138,7 @@ def main():
             query = gmail_date_7d_query()
             ids = list_message_ids(svc, query)
             # Deduplicate and preserve stable ordering
-            new_ids = [mid for mid in ids if mid not in seen]
+            new_ids = [mid for mid in ids if mid not in seen.get_set()]
 
             if new_ids:
                 # Process newest first (optional: reverse)
@@ -163,7 +150,7 @@ def main():
                     except HttpError as e:
                         # Rate limits or transient errors—log and keep going
                         print(f"⚠️  Error reading {mid}: {e}")
-                save_seen(seen)
+                seen.save()
 
         except KeyboardInterrupt:
             print("\nExiting by user request.")
