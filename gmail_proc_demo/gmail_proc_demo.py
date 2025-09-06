@@ -35,16 +35,16 @@ def gmail_service():
 
     return build("gmail", "v1", credentials=creds)
 
-def load_seen() -> set:
+def load_seen() -> list:
     if os.path.exists(STATE_FILE):
         try:
-            return set(json.load(open(STATE_FILE)))
+            return json.load(open(STATE_FILE))
         except Exception:
-            return set()
-    return set()
+            return []
+    return []
 
-def save_seen(seen: set):
-    tmp = sorted(list(seen))
+def save_seen(seen: list):
+    tmp = seen
     with open(STATE_FILE, "w") as f:
         json.dump(tmp, f)
 
