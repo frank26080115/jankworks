@@ -1,0 +1,12 @@
+.idea
+notion_authtoken.txt
+openai_apikey.txt
+cache
+cache/*
+logs
+logs/*
+pages_cache.pkl
+blank_pages*.txt
+*.log
+test.md
+answers
