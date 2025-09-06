@@ -5,6 +5,7 @@ DECORATION_KEYWORDS = {
     "discography", "anthology", "collection", "complete", "official",
     "greatest", "hits", "singles", "best", "deluxe", "expanded",
     "remaster", "remastered", "reissue", "box", "edition", "web",
+    "unorganized"
 }
 
 FEATURE_TOKENS = (" feat. ", " ft. ", " featuring ", " with ")
@@ -49,6 +50,8 @@ def strip_decorations_from_head(s: str) -> str:
     return " ".join(out).strip() or s
 
 def split_artist_left_of_dash(s: str) -> str:
+    if '-' not in s:
+        return None
     # Use the first ' - ' (with spaces) or a generous pattern
     m = re.split(r"\s[-–—]\s", s, maxsplit=1)
     return m[0].strip() if len(m) > 1 else ""
@@ -106,6 +109,9 @@ def guess_artist_from_path(path: str) -> Dict:
         if part.lower() == "music" and i + 1 < len(parts):
             after = norm(parts[i + 1])
             after2 = strip_decorations_from_head(after)
+            faf2 = strip_decorations_from_head(norm(filename))
+            if after2 == faf2:
+                continue
             if after2:
                 cands.append((after2, "after-music-folder", 65))
             break
@@ -116,6 +122,8 @@ def guess_artist_from_path(path: str) -> Dict:
 
     # normalize candidates, dedupe, and lightly score for “name-y-ness”
     def nameyness(x: str) -> int:
+        if x.lower().endswith(".com") or x.lower().endswith(".org") or x.lower().endswith(".net"):
+            return -1
         # bonus for capitalized words and presence of letters
         words = x.split()
         caps = sum(1 for w in words if w[:1].isupper())
@@ -127,7 +135,9 @@ def guess_artist_from_path(path: str) -> Dict:
         artist = artist.strip(" -")
         if not artist or len(artist) < 2:
             continue
-        score += nameyness(artist)
+        thisscore = nameyness(artist)
+        if thisscore >= 0:
+            score += thisscore
         if artist in merged:
             prev_why, prev_score = merged[artist]
             if score > prev_score:

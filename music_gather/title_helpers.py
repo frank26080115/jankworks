@@ -66,3 +66,52 @@ def title_from_filename(fname_stem: str) -> str:
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     cleaned = cleaned.strip(" -_.")
     return cleaned or fname_stem
+
+def normalize_delimiters(s: str) -> str:
+    """
+    Normalize separators *between alphanumeric characters*:
+      - Preserve plain spaces (do not replace with dashes).
+      - Preserve a single bare hyphen '-' (hyphenated words like 'all-american').
+      - If the run contains any dot/underscore OR any dash with spaces OR multiple dashes,
+        replace the whole run with ' - '.
+      - Collapse repeated ' - ' and trim edge junk.
+    """
+    if not s:
+        return s
+
+    def repl(m: re.Match) -> str:
+        sep = m.group(1)
+        stripped = sep.strip()
+
+        # Case 1: only spaces → leave as-is
+        if stripped == "":
+            return sep
+
+        # Case 2: exactly one bare hyphen (no spaces) → keep hyphenated word
+        if sep == "-":
+            return sep
+
+        # If there are dots or underscores → force to ' - '
+        if any(c in sep for c in "._"):
+            return " - "
+
+        # If there is a dash with any spaces around it OR multiple dashes → ' - '
+        if "-" in sep:
+            # Condense things like " - ", "--", " - - ", " -.- "
+            if sep != "-":  # not the bare hyphen case handled above
+                return " - "
+
+        # Fallback: if it's multiple spaces or odd mix, keep a single space
+        # (but this branch rarely triggers given the above checks)
+        return " "
+
+    # Only touch runs made of spaces/dots/underscores/hyphens between alnum
+    s = re.sub(r'(?<=\w)([\s._-]+)(?=\w)', repl, s)
+
+    # Never allow repeated ' - '
+    s = re.sub(r'(?:\s-\s){2,}', ' - ', s)
+
+    # Trim leading/trailing separator junk (but don't eat normal spaces inside)
+    s = s.strip(" -._")
+
+    return s

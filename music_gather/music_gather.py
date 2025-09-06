@@ -15,7 +15,8 @@ from mutagen import File as MutagenFile
 
 from artist_guess import guess_artist_from_path
 from search_path_helper import search_alternative_src
-from title_helpers import sanitize_name, title_from_filename, normalize_component, remove_leading_artist_from_title, normalize_separators_inside_title
+from title_helpers import sanitize_name, title_from_filename, normalize_component, remove_leading_artist_from_title, normalize_separators_inside_title, normalize_delimiters
+from overwrite_helper import exists_as_exact_match_in_dest
 
 # ---------------------------
 # Logging setup
@@ -112,10 +113,12 @@ def read_artist_and_title(path: Path, logger: logging.Logger):
 
     # If artist missing: try guesser
     guessed_used = False
+    reason = None
     if not artist:
         guess = guess_artist_from_path(str(path))
         if isinstance(guess, dict):
             artist = guess.get("artist")
+            reason = guess.get("reason")
         elif isinstance(guess, str):
             artist = guess
         if artist:
@@ -127,7 +130,7 @@ def read_artist_and_title(path: Path, logger: logging.Logger):
     if not artist:
         logger.warning(f"No artist tag and guess failed for {path}")
 
-    return artist, title, artist_source or "unknown", title_source, (audio if guessed_used else None)
+    return artist, title, artist_source or "unknown", title_source, (reason if reason else (audio if guessed_used else None))
 
 def write_artist_if_guessed(dest_path: Path, artist: str, logger: logging.Logger):
     """Attempt to write artist into metadata if it was guessed (best-effort)."""
@@ -198,7 +201,7 @@ def write_artist_if_guessed(dest_path: Path, artist: str, logger: logging.Logger
 def determine_new_name(artist: str, title: str, ext: str) -> str:
     # 1) Basic sanitization of components
     artist = artist or "Unknown Artist"
-    title  = title  or "Unknown Title"
+    title  = title.replace("_", " ").replace(".", " ") or "Unknown Title"
 
     # 2) Remove duplicated artist prefix from title (case-insensitive)
     title = remove_leading_artist_from_title(artist, title)
@@ -207,14 +210,27 @@ def determine_new_name(artist: str, title: str, ext: str) -> str:
     artist_clean = normalize_component(sanitize_name(artist))
     title_clean  = normalize_component(sanitize_name(title))
 
+    if artist_clean.lower() == "unorganized":
+        artist_clean = ""
+    if artist_clean.lower() == "music":
+        artist_clean = ""
+
     # 4) Inside the title, prevent separator soup; allow only ' - ' as the multi-chunk separator
     title_clean = normalize_separators_inside_title(title_clean)
 
-    # 5) Join with exactly one ' - ' between artist and title
-    filename_stem = f"{artist_clean} - {title_clean}"
+    artist_clean = artist_clean.strip(".-_ ")
+    title_clean = title_clean.strip(".-_ ")
+    if artist_clean:
+        artist_clean = normalize_delimiters(artist_clean)
+    title_clean = normalize_delimiters(title_clean)
+    artist_clean = artist_clean.strip(".-_ ")
+    title_clean = title_clean.strip(".-_ ")
 
-    # 6) Extra safety: never allow consecutive ' - ' across the whole stem
-    filename_stem = re.sub(r'(?:\s-\s){2,}', ' - ', filename_stem).strip()
+    # 5) Join with exactly one ' - ' between artist and title
+    if artist_clean:
+        filename_stem = f"{artist_clean} - {title_clean}"
+    else:
+        filename_stem = f"{title_clean}"
 
     return f"{filename_stem}{ext.lower()}"
 
@@ -299,7 +315,7 @@ def main():
                 logger.warning(f"No artist available even after guess: {src}")
 
             if artist_source == "guessed":
-                logger.warning(f"Artist guessed from path for {src} -> '{artist}'")
+                logger.warning(f"Artist guessed from path for {src} -> '{artist}', reason: {audio_for_guess}")
             if title_source == "filename" and title and re.match(r"^\s*\d", title):
                 # Paranoia: if filename-derived title still starts with digit (edge case),
                 # and tag_title existed but we didn't pick it, we already enforced the special rule above.
@@ -314,6 +330,10 @@ def main():
                 # Still record mapping in CSV as requested
                 rows.append((str(src), str(dest_path)))
                 continue
+            fuzzy_exists, fuzzy_result = exists_as_exact_match_in_dest(src, dest_path)
+            if fuzzy_exists:
+                logger.warning(f"Skipping copy due to fuzzy match: {dest_path} -> {fuzzy_result}")
+                continue
 
             # Ensure destination directory exists (already ensured at top, but in case of nested structure)
             dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -321,8 +341,18 @@ def main():
             # Copy
             try:
                 if not dry_run:
-                    shutil.copy2(src, dest_path)
-                logger.info(f"Copied: {src} -> {dest_path}")
+                    file_writable = False
+                    try:
+                        with open(src, "a+", encoding="utf-8") as f:
+                            file_writable = True
+                            pass
+                    except Exception as e:
+                        logger.warning(f"Src availability check failed for {src}")
+                    if file_writable:
+                        shutil.copy2(src, dest_path)
+                        logger.info(f"Copied: {src} -> {dest_path}")
+                else:
+                    logger.info(f"Copied (fake): {src} -> {dest_path}")
                 # If we used guessed artist, try to write it into the *copied* file metadata
                 if (artist_source == "guessed") and artist and not dry_run:
                     write_artist_if_guessed(dest_path, artist, logger)
