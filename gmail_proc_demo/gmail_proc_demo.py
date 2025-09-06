@@ -8,6 +8,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
+from prune_seen import prune_seen
+
 # ---- Config ----
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]  # use gmail.modify if you want to add labels, mark read, etc.
 STATE_FILE = "seen.json"
@@ -140,6 +142,7 @@ def process_email(msg: Dict[str, Any]):
 
 def main():
     svc = gmail_service()
+    prune_seen()
     seen = load_seen()
     print("Gmail watcher running (last 7 days, INBOX). Ctrl+C to stop.\n")
 
