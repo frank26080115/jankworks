@@ -17,10 +17,11 @@ from openai_credloader import OpenAICredentialsLoader
 from chunker import notion_page_to_h1_chunks
 from notiondata import NotionTextChunk
 from textsplitter import windowed_markdown_chunks
-from llmcall import judge_and_answer_structured, judge_and_answer_oss, ensure_ollama_up
+from llmcall import judge_and_answer, ensure_ollama_up
 from notion_breadcrumb import get_breadcrumb_with_block_text
 from evidencelink import find_block_by_evidence
 from progresstracker import ProgressTracker
+from ollamamodels import has_ollama_model, is_local
 
 STOP = threading.Event()
 
@@ -189,12 +190,9 @@ def llm_consumer_worker(
                 continue
             try:
                 #print(f"TEXT: {item.text}")
-                if "gpt-oss" not in llm_model:
-                    answer = judge_and_answer_structured(llm_client, item.text, prompt, llm_model) # this returns a JSON object with our custom structure
-                else:
-                    answer = judge_and_answer_oss(item.text, prompt)
+                answer = judge_and_answer(llm_client, item.text, prompt, llm_model)
                 progtracker.on_inference(in_q.qsize())
-                if answer.get("related", "").upper() == "YES":
+                if answer and answer.get("related", "").upper() == "YES":
                     ans = LibrarianAnswer(answer, item)
                     answers.append(ans)
                     url = item.get_url()
@@ -249,13 +247,14 @@ def main():
 
     args = p.parse_args()
 
-    if "gpt-oss" not in args.model:
+    ensure_ollama_up()
+
+    if not has_ollama_model(args.model):
         openai_apikey = OpenAICredentialsLoader().get_api_key()
         os.environ["OPENAI_API_KEY"] = openai_apikey
         llm_client = OpenAI()
         print("Using OpenAI online model")
     else:
-        ensure_ollama_up()
         llm_client = OpenAI(
             base_url="http://127.0.0.1:11434/v1",  # Ollama's OpenAI-compatible endpoint
             api_key="ollama"  # any non-empty string

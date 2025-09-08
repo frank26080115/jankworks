@@ -1,5 +1,23 @@
 import os, json
 from openai import OpenAI
+from ollamamodels import is_local
+
+def judge_and_answer(
+    client: object, md_text: str, question: str, model: str
+):
+    for attempt in range(3, -1, -1):
+        try:
+            if "gemma3" in model or "deepseek" in model:
+                return judge_and_answer_no_tools(client, md_text, question, model)
+            elif not is_local(client):
+                return judge_and_answer_structured(client, md_text, question, model)
+            else:
+                return judge_and_answer_oss(md_text, question)
+        except Exception as e:
+            if attempt <= 0:
+                #raise e
+                return None
+    return None
 
 SCHEMA = {
     "name": "QAResult",
@@ -137,6 +155,53 @@ def judge_and_answer_oss(question: str, document_text: str) -> dict:
     args["answer"] = args.get("answer", "")
     args["evidence"] = list(args.get("evidence", []))[:5]
     return args
+
+def judge_and_answer_no_tools(
+    client: object, md_text: str, question: str, model="gemma3:1b"
+):
+    system = (
+        "You are a retrieval QA checker. "
+        "Use ONLY the provided document to decide if the question can be answered. "
+        "Respond strictly in JSON, matching the required schema."
+    )
+    msgs = [
+        {"role": "system", "content": system},
+        {"role": "system", "content":
+            """
+Return ONLY a JSON object with the following fields:
+{
+  "related": "YES" | "NO",
+  "answer": "string",
+  "evidence": ["string", "string", "string", "string", "string"]
+}
+Rules:
+- "related" must be exactly "YES" or "NO".
+- If "related" is "NO", then "answer" must be "" and "evidence" must be [].
+- Evidence should be up to 5 short snippets copied from the document.
+- Do not include any text outside the JSON object.
+            """
+         },
+        {"role": "user", "content": f"Document:\n```markdown\n{md_text}\n```"},
+        {"role": "user", "content": f"Question:\n{question}"},
+    ]
+
+    res = client.chat.completions.create(
+        model=model,
+        messages=msgs,
+    )
+
+    raw = res.choices[0].message.content.strip()
+
+    # Try to coerce to valid JSON
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # crude fix: extract between first { and last }
+        try:
+            snippet = raw[raw.index("{"): raw.rindex("}")+1]
+            return json.loads(snippet)
+        except Exception:
+            return {"related": "NO", "answer": "", "evidence": []}
 
 import requests, time, subprocess, platform, os, sys
 

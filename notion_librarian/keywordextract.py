@@ -23,28 +23,87 @@ TOOLS_KEYWORDS = [{
 }]
 
 def llm_extract_keywords(client: object, question: str, model: str) -> dict:
+    for attempt in range(3, -1, -1):
+        try:
+            system = (
+                "Extract search controls for filtering text:\n"
+                "- Return JSON via function call `return_keywords`.\n"
+                "- `must`: very specific anchor terms (few).\n"
+                "- `should`: helpful terms.\n"
+                "- `phrases`: multi-word quotes to match exactly.\n"
+                "- `synonyms`: map from base term to near-synonyms and common misspellings.\n"
+                #"- `exclude`: terms that indicate off-topic.\n"
+                "Prefer concise, domain-relevant terms; avoid stopwords."
+            )
+            if "gemma3" in model or "deepseek" in model:
+                return llm_extract_keywords_no_tools(client, question, model)
+            else:
+                res = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role":"system","content":system},
+                              {"role":"user","content":question}],
+                    tools=TOOLS_KEYWORDS,
+                    tool_choice="auto",
+                    #temperature=0,
+                    #max_tokens=256,
+                    #extra_body={"keep_alive":"10m"}
+                )
+                call = res.choices[0].message.tool_calls[0]
+                return json.loads(call.function.arguments)
+        except Exception as e:
+            if attempt <= 0:
+                raise e
+    return {"must": [], "should": [], "phrases": [], "synonyms": {}}
+
+def llm_extract_keywords_no_tools(client: object, question: str, model: str="gemma3:1b") -> dict:
     system = (
-        "Extract search controls for filtering text:\n"
-        "- Return JSON via function call `return_keywords`.\n"
-        "- `must`: very specific anchor terms (few).\n"
-        "- `should`: helpful terms.\n"
-        "- `phrases`: multi-word quotes to match exactly.\n"
-        "- `synonyms`: map from base term to near-synonyms and common misspellings.\n"
-        #"- `exclude`: terms that indicate off-topic.\n"
-        "Prefer concise, domain-relevant terms; avoid stopwords."
+        "You are a keyword extractor. "
+        "Given a question, produce structured search terms in strict JSON only."
     )
+    msgs = [
+        {"role": "system", "content": system},
+        {"role": "system", "content": """
+Return ONLY a JSON object like this:
+
+{
+  "must":     ["string", "string"],
+  "should":   ["string", "string"],
+  "phrases":  ["string", "string"],
+  "synonyms": {"term": ["syn1","syn2"], "term2": ["synA","synB"]}
+}
+
+Rules:
+- "must": a few anchor terms that must be present.
+- "should": useful but optional terms.
+- "phrases": multi-word exact matches (may be empty).
+- "synonyms": each key is a base term; values are arrays of near-synonyms/misspellings.
+- Always include at least "must" and "should".
+- Respond with ONLY valid JSON. No prose.
+"""
+        },
+        {"role": "user", "content": question},
+    ]
+
     res = client.chat.completions.create(
         model=model,
-        messages=[{"role":"system","content":system},
-                  {"role":"user","content":question}],
-        tools=TOOLS_KEYWORDS,
-        tool_choice="auto",
-        #temperature=0,
-        #max_tokens=256,
-        #extra_body={"keep_alive":"10m"}
+        messages=msgs,
+        max_tokens=256,
+        temperature=0,
     )
-    call = res.choices[0].message.tool_calls[0]
-    return json.loads(call.function.arguments)
+
+    raw = res.choices[0].message.content.strip()
+
+    # Try to parse JSON directly
+    try:
+        return json.loads(raw)
+    except Exception:
+        # crude repair: extract the first {...} block
+        try:
+            snippet = raw[raw.index("{"): raw.rindex("}")+1]
+            return json.loads(snippet)
+        except Exception as e:
+            raise e
+    return {"must": [], "should": [], "phrases": [], "synonyms": {}}
 
 # --- 2) Expand terms (morphology + hyphen/space variants)
 def variants(term: str):
