@@ -1,0 +1,158 @@
+/* ============================
+   Dimensions & Page Setup
+   ============================ */
+:root {
+  --label-w: 3in;            /* Total length along the tape */
+  --label-h: 0.94in;         /* 24 mm tape height */
+  --half-w: calc(var(--label-w) / 2);
+}
+
+/* Force the printed page box to the exact label size */
+@page {
+  size: var(--label-w) var(--label-h);
+  margin: 0;
+}
+
+/* Screen baseline */
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #f7f7f7;    /* screen only */
+  padding: 16px;          /* screen only */
+}
+
+
+/* ============================
+   Base Label (no fold by default)
+   - Vertical centering is inherent.
+   - Horizontal alignment is controlled via .h-left / .h-center / .h-right.
+   ============================ */
+.label {
+  width: var(--label-w);
+  height: var(--label-h);
+  margin: 0 auto 12px;
+  background: #fff;
+  box-sizing: border-box;
+
+  /* Vertical center always; horizontal via .h-* utilities */
+  display: flex;
+  align-items: center;
+
+  /* Screen preview chrome (stripped in print) */
+  outline: 1px solid #cfcfcf;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+
+  position: relative;
+}
+
+/* Horizontal alignment utilities (apply to .label or to .half/.fill as needed) */
+.h-left   { justify-content: flex-start; text-align: left; }
+.h-center { justify-content: center;     text-align: center; }
+.h-right  { justify-content: flex-end;   text-align: right; }
+
+
+/* ============================
+   Folded Label Variant
+   - Two equal halves (each 1.5in wide for a 3in label).
+   - Add class "fold" to enable the two-column layout and optional fold line.
+   ============================ */
+.label.fold {
+  display: grid; /* overrides the base flex layout */
+  grid-template-columns: var(--half-w) var(--half-w);
+}
+
+/* Each half: its own flex container for vertical centering and per-half horizontal control */
+.half {
+  flex: 1 1 var(--half-w);
+  max-width: var(--half-w);
+  height: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;       /* vertical center inherent */
+  /* horizontal: choose with .h-left / .h-center / .h-right */
+
+  padding: 0 0.06in;         /* tiny breathing room from physical edge */
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+
+  white-space: normal;       /* allow wrapping */
+  overflow-wrap: break-word;
+}
+
+/* Printed fold guide: only on labels with the "fold" class */
+.label.fold::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  border-left: 1px dashed black; /* prints as the fold line */
+}
+
+
+/* ============================
+   Spacers & Fill Helpers
+   - Use these to reserve physical space (e.g., for flag/fold clearance)
+   - and to center text within remaining width.
+   ============================ */
+
+/* Legacy spacer (inline-block). Keeps for compatibility; prefer .gap-5mm for flex/grid layouts. */
+.flag-gap {
+  display: inline-block;
+  width: 5mm;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+/* Fixed-width spacer that participates nicely in flex/grid layouts */
+.gap-5mm {
+  flex: 0 0 5mm; /* fixed 5 mm */
+  height: 100%;
+}
+
+/* Wrap your actual text in .fill to center it within the remaining space */
+.fill {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;     /* vertical center */
+  justify-content: center; /* horizontal center */
+  text-align: center;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+
+/* ============================
+   Print Overrides
+   - Remove preview chrome.
+   - Keep labels centered on the page.
+   - Page break between labels.
+   ============================ */
+@media print {
+  body {
+    background: transparent;
+    padding: 0;
+  }
+  .label {
+    outline: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0 auto;              /* center the label on the page */
+  }
+  .label:not(:last-child) {
+    page-break-after: always;    /* one label per page */
+  }
+}
+
+/* Screen-only layout helpers for the labels container */
+#labels {
+  display: block;          /* don't use grid in print; block is safe */
+  padding: 16px;           /* mirrors your body padding */
+  background: #f7f7f7;     /* optional; matches your preview look */
+}
+
+/* Consistent vertical spacing between previewed labels */
+#labels .label + .label {
+  margin-top: 12px;        /* preview spacing only; page breaks still handled in @media print */
+}

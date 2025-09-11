@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>P-Touch Labels with Controls</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="labels.css">
+<style>
+/* Controls bar below labels (screen only) */
+#controls {
+  margin: 16px auto 0;
+  max-width: 680px;        /* optional */
+  font: inherit;
+}
+
+/* Preview wrapper + controls */
+#labels { background:#f7f7f7; padding:16px; }
+#labels .label + .label { margin-top:12px; }
+#controls { margin: 16px auto; max-width: 860px; padding: 0 16px; }
+#controls fieldset { border:1px solid #ccc; border-radius:8px; padding:12px 16px; }
+#controls legend { padding:0 6px; font-weight:700; }
+#controls .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:12px; }
+#controls label { font-weight:600; }
+#controls select, #controls input[type="number"], #controls textarea { font:inherit; }
+#controls textarea { width:100%; min-height:160px; padding:8px; box-sizing:border-box; }
+#status { font-size: 0.95em; margin-top: 6px; }
+#status.ok { color: #1a7f37; }
+#status.err { color: #b42318; }
+
+/* PRINT overrides: hide controls and strip extra chrome from wrapper */
+@media print {
+  #labels {
+    padding: 0;
+    background: transparent;
+  }
+  #controls {
+    display: none !important;   /* no UI in print */
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- LABEL PREVIEW AREA -->
+<div id="labels">
+  <!-- Example starting content (safe defaults) -->
+  <div class="label h-center">
+    PLAIN • CENTERED<br>3.00" × 0.94"<br>24 mm tape
+  </div>
+  <div class="label fold">
+    <span class="half h-center">FOLDED • LEFT</span>
+    <span class="half h-center">FOLDED • RIGHT</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <fieldset>
+    <legend>Controls</legend>
+
+    <div class="row">
+      <label for="heightSel">Label height:</label>
+      <select id="heightSel" title="Tape height (units required)">
+        <option value="12mm">12 mm</option>
+        <option value="24mm" selected>24 mm</option>
+      </select>
+
+      <label for="widthNum">Label width (inches):</label>
+      <input id="widthNum" type="number" min="1" max="8" step="0.1" value="3" inputmode="decimal" />
+    </div>
+
+    <div class="row" style="flex-direction:column; align-items:stretch;">
+      <label for="htmlBox">Raw HTML for <code>#labels</code> (must contain at least one <code>.label</code>):</label>
+      <textarea id="htmlBox" placeholder="Paste or type your label HTML here..."></textarea>
+      <div id="status" aria-live="polite"></div>
+    </div>
+
+    <hr>
+
+    <div>
+      <strong>Class summary</strong>
+      <ul>
+        <li><code>.label</code> — base label; vertically centered; add one of <code>.h-left</code>, <code>.h-center</code>, <code>.h-right</code> for horizontal alignment.</li>
+        <li><code>.label.fold</code> — two halves (1.5″ each for a 3″ label); optional printed fold line.</li>
+        <li><code>.half</code> — a half in folded labels; apply <code>.h-left/.h-center/.h-right</code> per half.</li>
+        <li><code>.gap-5mm</code> / <code>.flag-gap</code> — 5 mm spacer for flag/fold clearance (use <code>.gap-5mm</code> in flex/grid).</li>
+        <li><code>.fill</code> — centers text inside the remaining space when using spacers.</li>
+      </ul>
+
+      <strong>Examples you can paste into the box above</strong>
+      <pre><code>&lt;div class="label h-center"&gt;
+  THREE LINE PLAIN LABEL&lt;br&gt;CENTERED&lt;br&gt;EXAMPLE
+&lt;/div&gt;
+
+&lt;div class="label fold"&gt;
+  &lt;span class="half h-center"&gt;FOLDED • CENTER&lt;/span&gt;
+  &lt;span class="half h-center"&gt;FOLDED • CENTER&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;div class="label fold"&gt;
+  &lt;span class="half"&gt;
+    &lt;span class="fill"&gt;FLAG • LEFT HALF&lt;/span&gt;
+    &lt;span class="gap-5mm"&gt;&lt;/span&gt;   &lt;!-- gap on inner (fold) edge --&gt;
+  &lt;/span&gt;
+  &lt;span class="half"&gt;
+    &lt;span class="gap-5mm"&gt;&lt;/span&gt;   &lt;!-- gap on inner (fold) edge --&gt;
+    &lt;span class="fill"&gt;FLAG • RIGHT HALF&lt;/span&gt;
+  &lt;/span&gt;
+&lt;/div&gt;</code></pre>
+    </div>
+  </fieldset>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
