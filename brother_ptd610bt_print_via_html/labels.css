@@ -5,6 +5,8 @@
   --label-w: 3in;            /* Total length along the tape */
   --label-h: 0.94in;         /* 24 mm tape height */
   --half-w: calc(var(--label-w) / 2);
+  --fold-offset:   0mm;      /* + moves center to the right, - moves it to the left */
+  --page-nudge-x: -2mm;      /* + moves center to the right, - moves it to the left */
 }
 
 /* Force the printed page box to the exact label size */
@@ -59,7 +61,19 @@ body {
    ============================ */
 .label.fold {
   display: grid; /* overrides the base flex layout */
-  grid-template-columns: var(--half-w) var(--half-w);
+  /* halves = (half - δ/2) and (half + δ/2), so total stays == label width */
+  grid-template-columns:
+    calc(var(--half-w) - (var(--fold-offset) / 2))
+    calc(var(--half-w) + (var(--fold-offset) / 2));
+}
+
+/* Move the printed fold guide to the same biased center */
+.label.fold::before{
+  content: "";
+  position: absolute; top: 0; bottom: 0;
+  left: calc(50% + (var(--fold-offset) / 2));
+  border-left: 1px dashed black;
+  pointer-events: none;
 }
 
 /* Each half: its own flex container for vertical centering and per-half horizontal control */
@@ -70,8 +84,11 @@ body {
   box-sizing: border-box;
 
   display: flex;
+  flex-direction: column;    /* stack children vertically */
   align-items: center;       /* vertical center inherent */
   /* horizontal: choose with .h-left / .h-center / .h-right */
+  justify-content: center;   /* vertical centering */
+  text-align: center;
 
   padding: 0 0.06in;         /* tiny breathing room from physical edge */
   font-size: 13pt;
@@ -80,6 +97,10 @@ body {
 
   white-space: normal;       /* allow wrapping */
   overflow-wrap: break-word;
+}
+
+.line {
+  display: block;
 }
 
 /* Printed fold guide: only on labels with the "fold" class */
@@ -139,6 +160,7 @@ body {
     border-radius: 0;
     box-shadow: none;
     margin: 0 auto;              /* center the label on the page */
+    transform: translateX(var(--page-nudge-x));
   }
   .label:not(:last-child) {
     page-break-after: always;    /* one label per page */

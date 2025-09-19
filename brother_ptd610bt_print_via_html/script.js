@@ -29,24 +29,7 @@ const htmlBox   = document.getElementById('htmlBox');
 const labelsDiv = document.getElementById('labels');
 const statusEl  = document.getElementById('status');
 
-heightSel.addEventListener('change', () => {
-  // values are like "12mm", "24mm" — include units
-  setLabelHeight(heightSel.value);
-});
-
-widthNum.addEventListener('change', () => {
-  const n = Number(widthNum.value);
-  if (Number.isFinite(n) && n >= 1 && n <= 8) {
-    setLabelWidth(`${n}in`);
-    statusEl.textContent = '';
-    statusEl.className = '';
-  } else {
-    statusEl.textContent = 'Width must be between 1 and 8 inches.';
-    statusEl.className = 'err';
-  }
-});
-
-htmlBox.addEventListener('input', () => {
+function updateAndRenderAll() {
   const raw = htmlBox.value.trim();
   if (!raw) {
     statusEl.textContent = 'Textbox is empty — preview unchanged.';
@@ -63,4 +46,31 @@ htmlBox.addEventListener('input', () => {
     statusEl.textContent = `Invalid HTML: ${res.reason}`;
     statusEl.className = 'err';
   }
+}
+
+heightSel.addEventListener('change', () => {
+  // values are like "12mm", "24mm" — include units
+  setLabelHeight(heightSel.value);
+  updateAndRenderAll();
 });
+
+widthNum.addEventListener('change', () => {
+  const n = Number(widthNum.value);
+  if (Number.isFinite(n) && n >= 1 && n <= 8) {
+    setLabelWidth(`${n}in`);
+    statusEl.textContent = '';
+    statusEl.className = '';
+    updateAndRenderAll();
+  } else {
+    statusEl.textContent = 'Width must be between 1 and 8 inches.';
+    statusEl.className = 'err';
+  }
+});
+
+htmlBox.addEventListener('input', () => {
+  updateAndRenderAll();
+});
+
+function setFoldOffset(value) {
+  document.documentElement.style.setProperty("--fold-offset", value);
+}
