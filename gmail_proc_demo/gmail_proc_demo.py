@@ -10,6 +10,8 @@ from google.oauth2.credentials import Credentials
 
 from seen import SeenManager
 
+from order_num_extract import extract_order_number, extract_order_number_and_url
+
 # ---- Config ----
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]  # use gmail.modify if you want to add labels, mark read, etc.
 POLL_SECONDS = 30
@@ -110,6 +112,33 @@ def extract_text_content(payload: Dict[str, Any]) -> Dict[str, str]:
                 html = html or nested.get("html", "")
     return {"text": text, "html": html}
 
+def gmail_view_urls_from_message(message_resource, account_index=0):
+    """
+    Given a Gmail API message resource (from users.messages.get(..., format='metadata' or 'full')),
+    return (search_url, direct_url) where either can be None.
+    account_index controls /u/N in the Gmail URL (default 0).
+    """
+    # 1) RFC 822 Message-Id header (most reliable)
+    rfc822_message_id = None
+    for h in message_resource.get("payload", {}).get("headers", []):
+        if h.get("name", "").lower() == "message-id":
+            rfc822_message_id = h.get("value")
+            break
+
+    base = f"https://mail.google.com/mail/u/{account_index}"
+    search_url = None
+    if rfc822_message_id:
+        # Gmail accepts with or without angle brackets; we’ll include them if present
+        # and URL-encode minimally by replacing spaces if any (rare).
+        search_query = f"rfc822msgid:{rfc822_message_id}"
+        search_url = f"{base}/#search/{search_query}"
+
+    # 2) Direct (undocumented) internal-ID link
+    gmail_id = message_resource.get("id")
+    direct_url = f"{base}/#all/{gmail_id}" if gmail_id else None
+
+    return search_url, direct_url
+
 def process_email(msg: Dict[str, Any]):
     """
     🔧 Your message handler.
@@ -124,7 +153,17 @@ def process_email(msg: Dict[str, Any]):
     snippet = (content.get("text") or msg.get("snippet") or "").strip().replace("\n", " ")
     if len(snippet) > 160:
         snippet = snippet[:157] + "..."
-    print(f"📧  {subject}\n    From: {sender}\n    Date: {date}\n    {snippet}\n")
+    print(f"📧  {subject}\n    From: {sender}\n    Date: {date}\n    {snippet}")
+    txt, url = extract_order_number_and_url(content.get("html"))
+    txt2 = extract_order_number(subject)
+    if not txt and txt2:
+        txt = txt2
+    if txt:
+        print(f"order str: \"{txt}\"")
+        if url:
+            print(f"url: \"{txt}\"")
+    print(f"\n")
+    return txt, url, subject
 
 def main():
     svc = gmail_service()
@@ -133,32 +172,45 @@ def main():
     seen.load()
     print("Gmail watcher running (last 7 days, INBOX). Ctrl+C to stop.\n")
 
-    while True:
-        try:
-            query = gmail_date_7d_query()
-            ids = list_message_ids(svc, query)
-            # Deduplicate and preserve stable ordering
-            new_ids = [mid for mid in ids if mid not in seen.get_set()]
+    try:
+        query = gmail_date_7d_query()
+        ids = list_message_ids(svc, query)
+        # Deduplicate and preserve stable ordering
+        new_ids = [mid for mid in ids if mid not in seen.get_set()]
 
-            if new_ids:
-                # Process newest first (optional: reverse)
+        if new_ids:
+            # Process newest first (optional: reverse)
+            with open("summary.txt", "w") as f:
                 for mid in new_ids:
                     try:
                         msg = get_full_message(svc, mid)
-                        process_email(msg)
+                        # Notes about "mid" (message ID, "MESSAGE-ID" below)
+                        # https://mail.google.com/mail/u/0/#search/rfc822msgid:<MESSAGE-ID>
+                        # alternative: use msg.get to get the ID, use it as "GMAIL_MESSAGE_ID" below
+                        # https://mail.google.com/mail/u/0/#all/<GMAIL_MESSAGE_ID>
+                        txt, url, sub = process_email(msg)
+                        if txt:
+                            summary = sub + ", " + txt
+                            if url:
+                                summary += "," + url
+                            else:
+                                summary += ", NONE"
+                            email_url_search, email_url_direct = gmail_view_urls_from_message(msg)
+                            summary += " , " + email_url_search
+                            summary += " , " + email_url_direct
+                            summary += "\n"
+                            f.write(summary)
+                            f.flush()
                         seen.add(mid)
                     except HttpError as e:
                         # Rate limits or transient errors—log and keep going
                         print(f"⚠️  Error reading {mid}: {e}")
-                seen.save()
+            seen.save()
 
-        except KeyboardInterrupt:
-            print("\nExiting by user request.")
-            break
-        except Exception as e:
-            print(f"⚠️  Loop error: {e}")
-
-        time.sleep(POLL_SECONDS)
+    except KeyboardInterrupt:
+        print("\nExiting by user request.")
+    except Exception as e:
+        print(f"⚠️ fatal error: {e}")
 
 if __name__ == "__main__":
     main()
