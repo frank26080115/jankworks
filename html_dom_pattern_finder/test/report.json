@@ -1,0 +1,596 @@
+{
+  "top_candidates": [
+    {
+      "score": 198.5,
+      "depth": 23,
+      "group_size": 7,
+      "child_signature": "('div', '', (), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[7]/div/div/div/div/div/div/div/div/div[2]/div/div[3]/div/div[2]/div",
+      "preview_text": "Brother Genuine TZe231~1/2\" 2PK Black Print on White Label Tape. Each: 0.47 in x 26.2 ft (12 mm x 8 m) Total: 0.47 in x 52.4 ft (12 mm x 16 m) Sold by: Amazon.com Supplied by: Other Return or replace items: Eligible through October 5, 2025 ",
+      "html_bytes": 3617,
+      "url": "/dp/B0D8CC8H5H?ref_=ppx_printOD_title_dt_b_fed_asin_title_0_2",
+      "anchor_text": "Brother Genuine TZe231~1/2\" 2PK Black Print on White Label Tape. Each: 0.47 in x 26.2 ft (12 mm x 8 m) Total: 0.47 in x 52.4 ft (12 mm x 16 m)",
+      "preboost_score": 19.85
+    },
+    {
+      "score": 119.67,
+      "depth": 23,
+      "group_size": 8,
+      "child_signature": "('div', '', (), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[7]/div/div/div/div/div/div/div/div/div[2]/div/div[1]/div/div[2]/div",
+      "preview_text": "VAMPLIERS 2-Piece Stripped Screw Extractor Pliers Set. Made in Japan. 8\" Heavy Duty Linesman Plier + 6.25\" Multipurpose Screw Removal Pliers. High Carbon Steel. Sold by: Vampire Tools Inc. Return or replace items: Eligible through October 5",
+      "html_bytes": 3513,
+      "url": "/dp/B00PQ60NOQ?ref_=ppx_printOD_title_dt_b_fed_asin_title_0_0",
+      "anchor_text": "VAMPLIERS 2-Piece Stripped Screw Extractor Pliers Set. Made in Japan. 8\" Heavy Duty Linesman Plier + 6.25\" Multipurpose Screw Removal Pliers. High Carbon Steel.",
+      "preboost_score": 11.967
+    },
+    {
+      "score": 118.33,
+      "depth": 23,
+      "group_size": 8,
+      "child_signature": "('div', '', (), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[7]/div/div/div/div/div/div/div/div/div[2]/div/div[2]/div/div[2]/div",
+      "preview_text": "6PCS Plastic Test Tubes with Screw Caps 45ml Clear Tubes for Scientific Experiments, Party Decoration, Sample, Candy, Bath Salt, Storage Sold by: AccEncyc US Return or replace items: Eligible through October 5, 2025 $6.99 $6.99",
+      "html_bytes": 3480,
+      "url": "/dp/B0BF96JQ79?ref_=ppx_printOD_title_dt_b_fed_asin_title_0_1",
+      "anchor_text": "6PCS Plastic Test Tubes with Screw Caps 45ml Clear Tubes for Scientific Experiments, Party Decoration, Sample, Candy, Bath Salt, Storage",
+      "preboost_score": 11.833
+    },
+    {
+      "score": 54.95,
+      "depth": 8,
+      "group_size": 3,
+      "child_signature": "('div', '', (), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]",
+      "preview_text": "Order Summary Order placed September 4, 2025 Order # 111-1234567-7654321 Print Ship to firstname lastname 3014 street_name ST APT 212 cityname, CA 94412-2022 United States Payment method Prime Visa ending in 8134 Earns 5% back View related ",
+      "html_bytes": 32259,
+      "url": "/cpe/yourpayments/transactions?transactionTag=111-1234567-7654321&ref_=ppx_od_dt_b_yt",
+      "anchor_text": "View related transactions",
+      "preboost_score": 54.95
+    },
+    {
+      "score": 31.733,
+      "depth": 19,
+      "group_size": 3,
+      "child_signature": "('div', 'a-fixed-left-grid', (('div', 1),), True, True)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[7]/div/div/div/div/div/div/div/div/div[2]/div",
+      "preview_text": "VAMPLIERS 2-Piece Stripped Screw Extractor Pliers Set. Made in Japan. 8\" Heavy Duty Linesman Plier + 6.25\" Multipurpose Screw Removal Pliers. High Carbon Steel. Sold by: Vampire Tools Inc. Return or replace items: Eligible through October 5",
+      "html_bytes": 14690,
+      "url": "/dp/B00PQ60NOQ?ref_=ppx_printOD_image_dt_b_fed_asin_title_0_0",
+      "anchor_text": "",
+      "preboost_score": 31.733
+    },
+    {
+      "score": 25.983,
+      "depth": 18,
+      "group_size": 6,
+      "child_signature": "('li', '', (('span', 1),), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[6]/div/div/div/div[1]/div/div[2]/div[1]/div/ul",
+      "preview_text": "Item(s) Subtotal: $108.64 Shipping & Handling: $2.99 Free Shipping: -$2.99 Total before tax: $108.64 Estimated tax to be collected: $10.45 Grand Total: $119.09",
+      "html_bytes": 5730,
+      "url": "",
+      "anchor_text": "",
+      "preboost_score": 25.983
+    },
+    {
+      "score": 5.133,
+      "depth": 1,
+      "group_size": 7,
+      "child_signature": "('link', '', (), False, False)",
+      "xpath": "/html/head",
+      "preview_text": "Order Details",
+      "html_bytes": 2902,
+      "url": "",
+      "anchor_text": "",
+      "preboost_score": 5.133
+    },
+    {
+      "score": 3.317,
+      "depth": 14,
+      "group_size": 4,
+      "child_signature": "('div', '', (('span', 1),), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[5]/div/div/div[1]/div/div",
+      "preview_text": "Order placed September 4, 2025 Order # 111-1234567-7654321",
+      "html_bytes": 1303,
+      "url": "",
+      "anchor_text": "",
+      "preboost_score": 3.317
+    },
+    {
+      "score": 3.05,
+      "depth": 5,
+      "group_size": 3,
+      "child_signature": "('li', '', (('a', 1),), False, True)",
+      "xpath": "/html/body/div/div[2]/div[2]/ul",
+      "preview_text": "Conditions of Use Privacy Notice Consumer Health Data Privacy Disclosure Your Ads Privacy Choices",
+      "html_bytes": 665,
+      "url": "/gp/help/customer/display.html?nodeId=508088&ref_=footer_cou",
+      "anchor_text": "Conditions of Use",
+      "preboost_score": 3.05
+    },
+    {
+      "score": 2.483,
+      "depth": 19,
+      "group_size": 3,
+      "child_signature": "('li', '', (('span', 1),), False, False)",
+      "xpath": "/html/body/div/div[1]/div/div/div[3]/div/div[1]/div[6]/div/div/div/div[1]/div/div[1]/div/div[1]/div/ul",
+      "preview_text": "firstname lastname 3014 street_name ST APT 212 cityname, CA 94412-2022 United States",
+      "html_bytes": 544,
+      "url": "",
+      "anchor_text": "",
+      "preboost_score": 2.483
+    }
+  ],
+  "class_frequency_top20": [
+    [
+      "a-row",
+      11
+    ],
+    [
+      "a-list-item",
+      9
+    ],
+    [
+      "a-link-normal",
+      8
+    ],
+    [
+      "a-section",
+      6
+    ],
+    [
+      "a-row.od-line-item-row",
+      6
+    ],
+    [
+      "a-column.a-span7.od-line-item-row-label",
+      6
+    ],
+    [
+      "a-column.a-span-last.a-span5.od-line-item-row-content",
+      6
+    ],
+    [
+      "a-size-base",
+      5
+    ],
+    [
+      "a-color-base.a-size-base",
+      5
+    ],
+    [
+      "nav_a",
+      5
+    ],
+    [
+      "a-color-secondary.a-size-small",
+      4
+    ],
+    [
+      "a-fixed-left-grid",
+      3
+    ],
+    [
+      "a-fixed-left-grid-inner",
+      3
+    ],
+    [
+      "a-col-left.a-fixed-left-grid-col",
+      3
+    ],
+    [
+      "aok-relative",
+      3
+    ],
+    [
+      "a-col-right.a-fixed-left-grid-col",
+      3
+    ],
+    [
+      "a-size-small",
+      3
+    ],
+    [
+      "a-price.a-text-price",
+      3
+    ],
+    [
+      "a-offscreen",
+      3
+    ],
+    [
+      "a-button-inner",
+      2
+    ]
+  ],
+  "href_templates_top20": [
+    [
+      "/{word}/{alnum}",
+      6
+    ],
+    [
+      "/{word}/{word}/{word}/{word}",
+      4
+    ],
+    [
+      "/{word}/{word}/{word}",
+      3
+    ],
+    [
+      "/{word}/{word}",
+      2
+    ],
+    [
+      "/",
+      1
+    ],
+    [
+      "/{word}",
+      1
+    ]
+  ],
+  "href_domains_top10": [
+    [
+      "",
+      0
+    ]
+  ],
+  "tag_by_depth_top": {
+    "0": [
+      [
+        "html",
+        1
+      ]
+    ],
+    "1": [
+      [
+        "head",
+        1
+      ],
+      [
+        "body",
+        1
+      ]
+    ],
+    "2": [
+      [
+        "link",
+        7
+      ],
+      [
+        "meta",
+        4
+      ],
+      [
+        "title",
+        1
+      ],
+      [
+        "div",
+        1
+      ]
+    ],
+    "3": [
+      [
+        "div",
+        4
+      ],
+      [
+        "img",
+        1
+      ],
+      [
+        "link",
+        1
+      ]
+    ],
+    "4": [
+      [
+        "div",
+        3
+      ],
+      [
+        "a",
+        1
+      ],
+      [
+        "form",
+        1
+      ]
+    ],
+    "5": [
+      [
+        "span",
+        4
+      ],
+      [
+        "div",
+        2
+      ],
+      [
+        "ul",
+        1
+      ],
+      [
+        "input",
+        1
+      ]
+    ],
+    "6": [
+      [
+        "div",
+        6
+      ],
+      [
+        "li",
+        5
+      ],
+      [
+        "span",
+        1
+      ]
+    ],
+    "7": [
+      [
+        "a",
+        6
+      ],
+      [
+        "div",
+        2
+      ],
+      [
+        "ul",
+        1
+      ],
+      [
+        "span",
+        1
+      ]
+    ],
+    "8": [
+      [
+        "div",
+        3
+      ],
+      [
+        "span",
+        2
+      ],
+      [
+        "a",
+        1
+      ],
+      [
+        "button",
+        1
+      ],
+      [
+        "li",
+        1
+      ]
+    ],
+    "9": [
+      [
+        "div",
+        8
+      ],
+      [
+        "span",
+        1
+      ],
+      [
+        "a",
+        1
+      ]
+    ],
+    "10": [
+      [
+        "div",
+        4
+      ]
+    ],
+    "11": [
+      [
+        "div",
+        4
+      ]
+    ],
+    "12": [
+      [
+        "div",
+        7
+      ]
+    ],
+    "13": [
+      [
+        "div",
+        8
+      ]
+    ],
+    "14": [
+      [
+        "div",
+        6
+      ]
+    ],
+    "15": [
+      [
+        "div",
+        9
+      ],
+      [
+        "h1",
+        1
+      ]
+    ],
+    "16": [
+      [
+        "span",
+        5
+      ],
+      [
+        "div",
+        4
+      ]
+    ],
+    "17": [
+      [
+        "div",
+        4
+      ],
+      [
+        "i",
+        1
+      ],
+      [
+        "span",
+        1
+      ]
+    ],
+    "18": [
+      [
+        "div",
+        5
+      ],
+      [
+        "span",
+        1
+      ],
+      [
+        "ul",
+        1
+      ]
+    ],
+    "19": [
+      [
+        "li",
+        6
+      ],
+      [
+        "div",
+        3
+      ],
+      [
+        "h5",
+        2
+      ],
+      [
+        "input",
+        1
+      ],
+      [
+        "span",
+        1
+      ],
+      [
+        "ul",
+        1
+      ]
+    ],
+    "20": [
+      [
+        "span",
+        6
+      ],
+      [
+        "div",
+        5
+      ],
+      [
+        "li",
+        3
+      ],
+      [
+        "h5",
+        1
+      ]
+    ],
+    "21": [
+      [
+        "div",
+        13
+      ],
+      [
+        "span",
+        4
+      ]
+    ],
+    "22": [
+      [
+        "div",
+        19
+      ],
+      [
+        "br",
+        1
+      ],
+      [
+        "span",
+        1
+      ],
+      [
+        "h4",
+        1
+      ]
+    ],
+    "23": [
+      [
+        "span",
+        16
+      ],
+      [
+        "div",
+        6
+      ],
+      [
+        "br",
+        1
+      ],
+      [
+        "a",
+        1
+      ]
+    ],
+    "24": [
+      [
+        "div",
+        39
+      ],
+      [
+        "span",
+        8
+      ],
+      [
+        "br",
+        1
+      ]
+    ],
+    "25": [
+      [
+        "div",
+        9
+      ],
+      [
+        "span",
+        7
+      ]
+    ],
+    "26": [
+      [
+        "span",
+        9
+      ],
+      [
+        "a",
+        8
+      ]
+    ],
+    "27": [
+      [
+        "img",
+        3
+      ]
+    ]
+  }
+}
