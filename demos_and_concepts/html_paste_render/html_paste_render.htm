@@ -2,148 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Clipboard HTML Paste Demo</title>
+  <title>Clipboard HTML Paste Demo with Toggle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --gap: 12px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    html, body { height: 100%; margin: 0; }
-    body {
-      display: grid;
-      grid-template-rows: auto 1fr;
-      gap: var(--gap);
-      padding: var(--gap);
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: #0b0b10; color: #eaeaf0;
-    }
-    header { display: flex; align-items: center; gap: 10px; }
-    header h1 { font-size: 1rem; margin: 0; opacity: 0.85; }
-    #src {
-      width: 100%;
-      height: 28vh;
-      resize: vertical;
-      box-sizing: border-box;
-      background: #0f1220;
-      color: #e3e9ff;
-      border: 1px solid #26304d;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font: 13px/1.45 var(--mono);
-      outline: none;
-    }
-    #src:focus { border-color: #5a78ff; box-shadow: 0 0 0 2px #5a78ff33; }
-    #controls { display: flex; align-items: center; gap: 10px; }
-    button {
-      background: #1a2140; color: #e3e9ff; border: 1px solid #39457a;
-      padding: 8px 12px; border-radius: 8px; cursor: pointer;
-    }
-    button:hover { background: #232b58; }
-    #info { font-size: 12px; opacity: 0.8; }
-    #render {
-      background: #0f1220;
-      border: 1px solid #26304d;
-      border-radius: 8px;
-      padding: 12px;
-      overflow: auto;
-      height: calc(72vh - var(--gap));
-    }
-    .badge { background: #232b58; border: 1px solid #39457a; padding: 2px 6px; border-radius: 999px; font-size: 11px; }
-    a.sample { color: #a7b6ff; text-decoration: none; }
-    a.sample:hover { text-decoration: underline; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #0b0b10; color: #eaeaf0; }
+    #src { width: 100%; height: 28vh; resize: vertical; background: #0f1220; color: #e3e9ff;
+           border: 1px solid #26304d; border-radius: 6px; padding: 8px; font-family: monospace; }
+    #render { background: #0f1220; border: 1px solid #26304d; border-radius: 6px;
+              padding: 12px; margin-top: 1rem; overflow: auto; height: 60vh; }
+    #render.hidden { display: none; }
+    #mode { font-size: 0.9rem; opacity: 0.8; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>📋 Paste HTML → show source + render</h1>
-    <span id="mode" class="badge" title="What the paste handler captured">waiting…</span>
-  </header>
-
-  <section id="controls">
-    <button id="clearBtn">Clear</button>
-    <button id="renderBtn" title="Force re-render (useful if you edited the source)">Render</button>
-    <span id="info">Tip: focus the box and press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste rich content from a webpage. The box shows HTML, the pane below renders it. 🧙‍♂️</span>
-  </section>
-
-  <textarea id="src" placeholder="Paste here (Ctrl+V). If your clipboard has text/html, we’ll capture that and show the raw HTML…"></textarea>
-
-  <div id="render" aria-label="Rendered HTML output goes here"></div>
+  <h1>📋 Paste HTML → show source + render</h1>
+  <p id="mode">waiting… (press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> to toggle render)</p>
+  <textarea id="src" placeholder="Paste HTML here with Ctrl+V"></textarea>
+  <div id="render"></div>
 
   <script>
-    (function () {
-      const srcEl = document.getElementById('src');
-      const renderEl = document.getElementById('render');
-      const modeBadge = document.getElementById('mode');
-      const clearBtn = document.getElementById('clearBtn');
-      const renderBtn = document.getElementById('renderBtn');
+    const srcEl = document.getElementById('src');
+    const renderEl = document.getElementById('render');
+    const mode = document.getElementById('mode');
 
-      function setMode(text) { modeBadge.textContent = text; }
+    function renderNow() {
+      renderEl.innerHTML = srcEl.value;
+    }
 
-      function renderNow() {
-        // Render whatever is in the textarea as HTML
-        renderEl.innerHTML = srcEl.value;
+    // Paste handler: grab HTML if available
+    srcEl.addEventListener('paste', (e) => {
+      if (!e.clipboardData) return;
+      e.preventDefault();
+      const html = e.clipboardData.getData('text/html');
+      if (html) {
+        srcEl.value = html;
+        mode.textContent = "captured: text/html ✅ (toggle render with Ctrl+Shift+R)";
+        renderNow();
+      } else {
+        const text = e.clipboardData.getData('text/plain');
+        srcEl.value = text;
+        mode.textContent = "captured: text/plain ↘️ (toggle render with Ctrl+Shift+R)";
+        renderNow();
       }
+    });
 
-      // Paste handler: prefer HTML, fallback to plain text
-      srcEl.addEventListener('paste', (e) => {
-        // If the browser gives us clipboardData, use it; otherwise let default happen.
-        if (!e.clipboardData) return;
+    // Re-render on manual edits
+    srcEl.addEventListener('input', renderNow);
+
+    // Hotkey: Ctrl+Shift+R toggles visibility
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'r') {
+        renderEl.classList.toggle('hidden');
+        mode.textContent = renderEl.classList.contains('hidden')
+          ? "render hidden (Ctrl+Shift+R to show)"
+          : "render visible (Ctrl+Shift+R to hide)";
         e.preventDefault();
-
-        // Try HTML first
-        let html = e.clipboardData.getData('text/html');
-        if (html) {
-          setMode('captured: text/html ✅');
-          srcEl.value = html;
-          renderNow();
-          return;
-        }
-
-        // Fallback: plain text
-        let text = e.clipboardData.getData('text/plain');
-        if (text) {
-          setMode('captured: text/plain (no HTML) ↘️');
-          // Show the plain text as-is; still render it (will appear as text unless it’s valid HTML)
-          srcEl.value = text;
-          renderNow();
-          return;
-        }
-
-        setMode('no clipboard data 🤷');
-      });
-
-      // Live update on manual edits (debounced)
-      let t;
-      srcEl.addEventListener('input', () => {
-        clearTimeout(t);
-        t = setTimeout(renderNow, 120);
-      });
-
-      clearBtn.addEventListener('click', () => {
-        srcEl.value = '';
-        renderEl.innerHTML = '';
-        setMode('cleared');
-        srcEl.focus();
-      });
-
-      renderBtn.addEventListener('click', renderNow);
-
-      // Optional: seed with a tiny sample so the layout isn’t empty
-      const sample = `
-        <style>
-          .demo-card{padding:10px;border:1px solid #39457a;border-radius:8px;background:#121633}
-          .demo-card h3{margin:0 0 6px 0}
-          .demo-chip{display:inline-block;padding:2px 6px;margin-right:6px;border-radius:999px;border:1px solid #39457a}
-        </style>
-        <div class="demo-card">
-          <h3>Sample paste ✨</h3>
-          <div class="demo-chip">HTML</div>
-          <div class="demo-chip">Clipboard</div>
-          <p>This is here so you can see the rendering area. Paste something rich to replace it.</p>
-        </div>`;
-      srcEl.value = sample.trim();
-      renderNow();
-      setMode('sample loaded');
-    })();
+      }
+    });
   </script>
 </body>
 </html>
