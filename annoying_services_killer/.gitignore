@@ -1,0 +1,77 @@
+## Ignore Visual Studio temporary files, build results, and
+## user-specific files
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache files
+.vs/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NuGet packages
+*.nupkg
+# The packages folder can be ignored because of package restore
+**/[Pp]ackages/*
+# except build/ subfolder
+!**/[Pp]ackages/build/
+# Uncomment if you have local NuGet sources
+# *.snupkg
+
+# Roslyn cache
+*.ide/
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# T4 code generation
+*.generated.cs
+
+# Backup & report files from converting old projects
+*.Backup
+*.Report.xml
+
+# SQL Server files
+*.mdf
+*.ldf
+
+# Windows image cache
+Thumbs.db
+ehthumbs.db
+
+# Others
+*.dbmdl
+*.bak
+*.orig
+
+# Rider / JetBrains IDEs
+.idea/
+*.sln.iml
+
+# OS files
+.DS_Store
+desktop.ini
