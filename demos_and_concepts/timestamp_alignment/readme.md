@@ -1,0 +1,1 @@
+This is for a concept of an always recording video attached to a photography camera. The photos will have a timestamp and the video can be analyzed for moments when the video is most motionless (using optical flow). Then using this alignment algorithm, the photos can be matched to those moments.
