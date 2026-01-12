@@ -7,7 +7,7 @@ from io import BytesIO
 import fitz  # PyMuPDF
 import numpy as np
 from PIL import Image
-
+from scipy.ndimage import rotate
 
 WHITE_THRESHOLD = 32
 
@@ -96,6 +96,61 @@ def crop_non_white(pil_img):
     return pil_img.crop((left, top, right + 1, bottom + 1))
 
 
+def _white_fill_for_mode(img: Image.Image):
+    """
+    Return a white fillcolor appropriate for the image mode.
+    """
+    if img.mode == "L":
+        return 255
+    if img.mode == "RGB":
+        return (255, 255, 255)
+    if img.mode == "RGBA":
+        return (255, 255, 255, 255)
+    if img.mode == "LA":
+        return (255, 255)
+    # fallback: try max value per channel
+    bands = img.getbands()
+    return tuple(255 for _ in bands)
+
+
+def estimate_skew_angle(pil_img, max_angle=5.0, step=0.25):
+    """
+    Estimate skew angle using projection-profile variance.
+    Operates in grayscale regardless of input mode.
+    """
+    gray = np.array(pil_img.convert("L"))
+    binary = gray < 128  # text = True
+
+    best_angle = 0.0
+    best_score = -1.0
+
+    for angle in np.arange(-max_angle, max_angle + step, step):
+        rotated = rotate(binary, angle, reshape=False, order=0)
+        profile = np.sum(rotated, axis=1)
+        score = np.var(profile)
+
+        if score > best_score:
+            best_score = score
+            best_angle = angle
+
+    return best_angle
+
+
+def deskew(pil_img):
+    """
+    Deskew image while preserving color mode and using correct white fill.
+    """
+    angle = estimate_skew_angle(pil_img)
+    fill = _white_fill_for_mode(pil_img)
+
+    return pil_img.rotate(
+        angle,
+        expand=True,
+        fillcolor=fill,
+        resample=Image.BICUBIC
+    )
+
+
 def main(pdf_path):
     pdf_path = Path(pdf_path).resolve()
     if not pdf_path.exists():
@@ -110,18 +165,20 @@ def main(pdf_path):
         pix = page.get_pixmap(dpi=300)
         img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
 
-        cropped = crop_non_white(img)
+        img = crop_non_white(img)
 
-        filename = generate_filename(cropped)
+        img = deskew(img)
+
+        filename = generate_filename(img)
         out_pdf = output_dir / f"{filename}.pdf"
 
         # Convert PIL image → PNG bytes in memory
         img_bytes = BytesIO()
-        cropped.save(img_bytes, format="PNG")
+        img.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
         doc = fitz.open()
-        rect = fitz.Rect(0, 0, cropped.width, cropped.height)
+        rect = fitz.Rect(0, 0, img.width, img.height)
         page_out = doc.new_page(width=rect.width, height=rect.height)
 
         page_out.insert_image(rect, stream=img_bytes.read())
