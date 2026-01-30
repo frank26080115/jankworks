@@ -9,11 +9,21 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import rotate
 
+from ocr import ocr_image_chunks, extract_receipt_signature
+
 WHITE_THRESHOLD = 32
 
 
 def generate_filename(img):
     """Placeholder for future parsing logic."""
+    try:
+        lines = ocr_image_chunks(img)
+        #print(lines)
+        s = extract_receipt_signature(lines)
+        if s:
+            return s
+    except Exception as ex:
+        print(f"OCR failed: {ex!r}")
     return ''.join(random.choices('0123456789ABCDEF', k=8))
 
 
@@ -151,6 +161,58 @@ def deskew(pil_img):
     )
 
 
+def image_to_pdf_page(img: Image.Image) -> fitz.Document:
+    """
+    Convert a PIL Image into a single-page PDF using JPEG compression,
+    enforcing a maximum pixel dimension while preserving physical size.
+    """
+
+    MAX_PX = 2000
+    JPEG_QUALITY = 85
+
+    # ---- Normalize image mode ----
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    orig_w, orig_h = img.size
+
+    # ---- Scale down if needed ----
+    scale = min(1.0, MAX_PX / max(orig_w, orig_h))
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+
+    if scale < 1.0:
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+
+    # ---- Encode as JPEG ----
+    img_bytes = BytesIO()
+    img.save(
+        img_bytes,
+        format="JPEG",
+        quality=JPEG_QUALITY,
+        optimize=True,
+        progressive=True,
+    )
+    img_bytes.seek(0)
+
+    # ---- Create PDF ----
+    doc = fitz.open()
+
+    # Preserve physical size:
+    # Assume original image pixels map 1:1 to points unless DPI known.
+    # Scaling page to original size prevents visual shrink.
+    page_width = orig_w
+    page_height = orig_h
+
+    page = doc.new_page(width=page_width, height=page_height)
+
+    # Insert scaled image but stretch to original page size
+    rect = fitz.Rect(0, 0, page_width, page_height)
+    page.insert_image(rect, stream=img_bytes.read())
+
+    return doc
+
+
 def main(pdf_path):
     pdf_path = Path(pdf_path).resolve()
     if not pdf_path.exists():
@@ -169,19 +231,10 @@ def main(pdf_path):
 
         img = deskew(img)
 
-        filename = generate_filename(img)
+        filename = f"{i}_{generate_filename(img)}"
         out_pdf = output_dir / f"{filename}.pdf"
 
-        # Convert PIL image → PNG bytes in memory
-        img_bytes = BytesIO()
-        img.save(img_bytes, format="PNG")
-        img_bytes.seek(0)
-
-        doc = fitz.open()
-        rect = fitz.Rect(0, 0, img.width, img.height)
-        page_out = doc.new_page(width=rect.width, height=rect.height)
-
-        page_out.insert_image(rect, stream=img_bytes.read())
+        doc = image_to_pdf_page(img)
 
         doc.save(out_pdf)
         doc.close()
