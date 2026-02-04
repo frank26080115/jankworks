@@ -20,12 +20,33 @@ PROMPT = (
     "Emphasize shape and functional geometry. Patent-style illustration."
 )
 
+def crop_to_content_square(img: Image.Image) -> Image.Image:
+    """
+    Crop as much outer white space as possible, then pad to square.
+    Assumes white background, black foreground.
+    """
+    # Invert so content becomes white for bbox detection
+    inverted = ImageOps.invert(img)
+    bbox = inverted.getbbox()
+
+    if bbox:
+        img = img.crop(bbox)
+
+    # Pad to square
+    w, h = img.size
+    size = max(w, h)
+
+    square = Image.new("L", (size, size), 255)
+    square.paste(img, ((size - w) // 2, (size - h) // 2))
+
+    return square
+
 def image_to_line_art(input_path, output_path):
-    # Open input image as a FILE (important!)
+    # Open input image as FILE (required for MIME)
     with open(input_path, "rb") as image_file:
         result = client.images.edit(
             model="gpt-image-1",
-            image=image_file,  # <-- MUST be a file-like object
+            image=image_file,
             prompt=PROMPT,
             size="1024x1024",
         )
@@ -35,14 +56,20 @@ def image_to_line_art(input_path, output_path):
     image_bytes = base64.b64decode(image_base64)
     img = Image.open(BytesIO(image_bytes)).convert("L")
 
-    # Improve contrast and binarize
+    # Contrast + binarize
     img = ImageOps.autocontrast(img)
     img = img.point(lambda p: 255 if p > 180 else 0)
+
+    # NEW: crop to content and square it
+    img = crop_to_content_square(img)
 
     # Resize to label constraints (≤150×150 px)
     img.thumbnail((150, 150), Image.LANCZOS)
 
-    # Save with explicit DPI metadata
+    # Binarize again
+    img = img.point(lambda p: 255 if p > 180 else 0)
+
+    # Save with DPI metadata
     img.save(output_path, format="PNG", dpi=(180, 180))
 
     print(f"Saved label image → {output_path}")
