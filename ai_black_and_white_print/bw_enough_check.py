@@ -10,7 +10,7 @@ from PIL import Image, ImageGrab, ImageOps
 from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square
 
 
-def already_black_and_white_enough(input_path: str | None, output_path: str | None) -> bool:
+def already_black_and_white_enough(input_path: str | None, output_path: str | None) -> tuple[bool, str | None]:
     # Load and grayscale immediately
     img = load_input_image(input_path).convert("L")
     total_pixels = img.size[0] * img.size[1]
@@ -33,7 +33,7 @@ def already_black_and_white_enough(input_path: str | None, output_path: str | No
     for i in range(low, high + 1):
         if hist[i] > 0:
             print(f"Failed at {i} = {hist[i]}")
-            return False  # NOT black & white enough
+            return False, output_path  # NOT black & white enough
 
     # If we reach here, it's effectively binary already
     img = img.point(lambda p: 255 if p > 180 else 0)

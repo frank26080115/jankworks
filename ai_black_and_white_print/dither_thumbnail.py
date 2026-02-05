@@ -84,8 +84,9 @@ def dither_convert(input_path, output_path, add_outline=True):
         combined = dithered
 
     if output_path:
-        combined.save(args.output_image)
-        print(f"Saved: {args.output_image}")
+        # Save to the explicit function argument so callers can reuse this helper safely.
+        combined.save(output_path)
+        print(f"Saved: {output_path}")
     else:
         copy_image_to_clipboard_windows(combined.convert("L"))
         print("Saved result to system clipboard.")

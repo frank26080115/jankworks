@@ -1,5 +1,6 @@
 import argparse
-import shutil, os
+import os
+import shutil
 from PIL import Image
 
 from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square
@@ -41,9 +42,11 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    input_path = args.input_image
 
-    if args.input_image:
-        if os.path.splittext(input_path)[1].lower() == ".dxf":
+    if input_path:
+        # Handle DXF files early because they need a dedicated conversion path.
+        if os.path.splitext(input_path)[1].lower() == ".dxf":
             output_path = dxf_to_img(input_path)
             if args.output_image:
                 shutil.move(os.path.abspath(output_path), os.path.abspath(args.output_image))
