@@ -32,7 +32,7 @@ def already_black_and_white_enough(input_path: str | None, output_path: str | No
     # Check for non-zero bins in mid-tones
     for i in range(low, high + 1):
         if hist[i] > 0:
-            print(f"Failed at {i} = {hist[i]}")
+            #print(f"Failed at {i} = {hist[i]}")
             return False, output_path  # NOT black & white enough
 
     # If we reach here, it's effectively binary already
