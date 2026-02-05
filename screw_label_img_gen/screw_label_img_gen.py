@@ -1,7 +1,9 @@
 import argparse
 import os
-from PIL import Image, ImageOps, ImageChops
+from PIL import Image, ImageDraw, ImageOps, ImageChops
 import sys
+import numpy as np
+from collections import deque
 
 
 TEMPLATES_DIR = "templates"
@@ -44,37 +46,85 @@ def parse_templates(code):
     return found, remaining
 
 
-def invert_and_cleanup(img):
+def extract_contour_mask(img, threshold=180):
     """
-    Invert image, then remove enclosed black regions
-    not touching white pixels (background cleanup).
+    Contour extraction via RGB flood fill:
+    1. Convert to RGB
+    2. Threshold to white / black
+    3. Flood fill background from (0,0) with RED
+    4. Everything NOT red -> white
+    5. Everything NOT white -> black
     """
+    # Step 1: grayscale
+    gray = img.convert("L")
+
+    # Step 2: threshold (white background, black object)
+    bw = gray.point(lambda p: 255 if p >= threshold else 0)
+
+    # Step 3: convert to RGB
+    rgb = bw.convert("RGB")
+
+    # Step 4: flood fill background with RED from (0,0)
+    ImageDraw.floodfill(rgb, (0, 0), (255, 0, 0))
+
+    arr = np.array(rgb)
+
+    # Step 5: everything NOT red -> white
+    is_red = (arr[:, :, 0] == 255) & (arr[:, :, 1] == 0) & (arr[:, :, 2] == 0)
+    arr[~is_red] = [255, 255, 255]
+
+    # Step 6: everything NOT white -> black
+    is_white = (arr[:, :, 0] == 255) & (arr[:, :, 1] == 255) & (arr[:, :, 2] == 255)
+    arr[~is_white] = [0, 0, 0]
+
+    # Step 7: convert to binary mask
+    mask = arr[:, :, 0] != 0
+
+    return mask
+
+
+def invert_and_cleanup(img, threshold=180):
     img = img.convert("L")
-    pixels = img.load()
-    w, h = img.size
+    arr = np.array(img)
 
-    # Invert
-    for y in range(h):
-        for x in range(w):
-            pixels[x, y] = 255 - pixels[x, y]
+    # Step 1: contour mask from original image
+    contour_mask = extract_contour_mask(img, threshold)
+    #return Image.fromarray(contour_mask)
 
-    # Remove black pixels fully surrounded by black
+    # Step 2: invert
+    arr = 255 - arr
+
+    h, w = arr.shape
     to_white = []
 
+    # Step 3: cleanup background
     for y in range(1, h - 1):
         for x in range(1, w - 1):
-            if pixels[x, y] == 0:
-                neighbors = [
-                    pixels[x - 1, y], pixels[x + 1, y],
-                    pixels[x, y - 1], pixels[x, y + 1],
-                ]
-                if all(n == 0 for n in neighbors):
-                    to_white.append((x, y))
 
-    for x, y in to_white:
-        pixels[x, y] = 255
+            # Only consider black pixels
+            if arr[y, x] != 0:
+                continue
 
-    return img
+            # Never touch contour pixels
+            if contour_mask[y, x]:
+                continue
+
+            # If touching white, it's border-adjacent → keep
+            neighbors = [
+                arr[y - 1, x], arr[y + 1, x],
+                arr[y, x - 1], arr[y, x + 1],
+            ]
+
+            if any(n == 255 for n in neighbors):
+                continue
+
+            # True background → erase
+            to_white.append((y, x))
+
+    for y, x in to_white:
+        arr[y, x] = 255
+
+    return Image.fromarray(arr)
 
 
 def main():
