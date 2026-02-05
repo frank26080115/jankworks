@@ -1,30 +1,18 @@
 import argparse
-from PIL import Image, ImageOps
+import ctypes
+import sys
+from io import BytesIO
+
+import cv2
+import numpy as np
+from PIL import Image, ImageGrab, ImageOps
+
+from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square
 
 
-def crop_to_content_square(img: Image.Image) -> Image.Image:
-    """
-    Crop as much outer white space as possible, then pad to square.
-    Assumes white background, black foreground.
-    """
-    inverted = ImageOps.invert(img)
-    bbox = inverted.getbbox()
-
-    if bbox:
-        img = img.crop(bbox)
-
-    w, h = img.size
-    size = max(w, h)
-
-    square = Image.new("L", (size, size), 255)
-    square.paste(img, ((size - w) // 2, (size - h) // 2))
-
-    return square
-
-
-def already_black_and_white_enough(input_path, output_path) -> bool:
+def already_black_and_white_enough(input_path: str | None, output_path: str | None) -> bool:
     # Load and grayscale immediately
-    img = Image.open(input_path).convert("L")
+    img = load_input_image(input_path).convert("L")
     total_pixels = img.size[0] * img.size[1]
 
     # Autocontrast
@@ -48,7 +36,6 @@ def already_black_and_white_enough(input_path, output_path) -> bool:
             return False  # NOT black & white enough
 
     # If we reach here, it's effectively binary already
-    # Convert to pure black & white
     img = img.point(lambda p: 255 if p > 180 else 0)
 
     # Crop and square
@@ -60,22 +47,37 @@ def already_black_and_white_enough(input_path, output_path) -> bool:
     # Convert to pure black & white
     img = img.point(lambda p: 255 if p > 180 else 0)
 
-    # Save output
-    img.save(output_path, format="PNG", dpi=(180, 180))
+    if output_path:
+        img.save(output_path, format="PNG", dpi=(180, 180))
+        print(f"Saved output image → {output_path}")
+    else:
+        copy_image_to_clipboard_windows(img)
+        print("Saved output image to system clipboard.")
+        show_image_with_cv2(img)
 
-    return True
+    return True, output_path
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Check if image is already black & white enough for label printing"
     )
-    parser.add_argument("input_image", help="Input image file")
-    parser.add_argument("output_image", help="Output image file")
+    parser.add_argument(
+        "input_image",
+        nargs="?",
+        default=None,
+        help="Optional input image file. If omitted, clipboard image is used.",
+    )
+    parser.add_argument(
+        "output_image",
+        nargs="?",
+        default=None,
+        help="Optional output image file. If omitted, result is copied to clipboard and previewed.",
+    )
 
     args = parser.parse_args()
 
-    result = already_black_and_white_enough(args.input_image, args.output_image)
+    result, _ = already_black_and_white_enough(args.input_image, args.output_image)
 
     print(result)
     # Optional: use exit code for scripting

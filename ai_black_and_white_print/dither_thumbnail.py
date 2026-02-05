@@ -1,76 +1,13 @@
 import argparse
-from PIL import Image, ImageOps, ImageChops
+import ctypes
+import sys
+from io import BytesIO
+
+import cv2
 import numpy as np
+from PIL import Image, ImageChops, ImageGrab, ImageOps
 
-
-def crop_to_content_square_(img, white_threshold=245):
-    """
-    Crop image to the tightest square around non-white content.
-    white_threshold: 0–255, higher = more aggressive whitespace removal
-    """
-    # Convert to numpy for analysis
-    arr = np.array(img)
-
-    # Identify non-white pixels
-    mask = arr < white_threshold
-
-    if not mask.any():
-        # Image is basically empty; return centered square
-        w, h = img.size
-        size = min(w, h)
-        left = (w - size) // 2
-        top = (h - size) // 2
-        return img.crop((left, top, left + size, top + size))
-
-    ys, xs = np.where(mask)
-    top, bottom = ys.min(), ys.max()
-    left, right = xs.min(), xs.max()
-
-    # Bounding box of content
-    content_w = right - left + 1
-    content_h = bottom - top + 1
-    size = max(content_w, content_h)
-
-    # Center square around content
-    cx = (left + right) // 2
-    cy = (top + bottom) // 2
-
-    half = size // 2
-    new_left = max(0, cx - half)
-    new_top = max(0, cy - half)
-    new_right = new_left + size
-    new_bottom = new_top + size
-
-    # Clamp to image bounds
-    w, h = img.size
-    if new_right > w:
-        new_left = w - size
-        new_right = w
-    if new_bottom > h:
-        new_top = h - size
-        new_bottom = h
-
-    return img.crop((new_left, new_top, new_right, new_bottom))
-
-
-def crop_to_content_square(img: Image.Image) -> Image.Image:
-    """
-    Crop as much outer white space as possible, then pad to square.
-    Assumes white background, black foreground.
-    """
-    inverted = ImageOps.invert(img)
-    bbox = inverted.getbbox()
-
-    if bbox:
-        img = img.crop(bbox)
-
-    w, h = img.size
-    size = max(w, h)
-
-    square = Image.new("L", (size, size), 255)
-    square.paste(img, ((size - w) // 2, (size - h) // 2))
-
-    return square
+from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square
 
 
 def extract_outline(gray_img, threshold=180):
@@ -95,14 +32,36 @@ def extract_outline(gray_img, threshold=180):
     return outline_img
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare image with outline and dithering")
-    parser.add_argument("input_image", help="Input image file")
-    parser.add_argument("output_image", help="Output image file")
+    parser.add_argument(
+        "input_image",
+        nargs="?",
+        default=None,
+        help="Optional input image file. If omitted, clipboard image is used.",
+    )
+    parser.add_argument(
+        "output_image",
+        nargs="?",
+        default=None,
+        help="Optional output image file. If omitted, result is copied to clipboard and previewed.",
+    )
+    parser.add_argument(
+        "--outline",
+        action='store_true',
+        help="Add an outline around the object",
+    )
     args = parser.parse_args()
 
+    input_path = args.input_image
+    output_path = args.output_image
+
+    dither_convert(input_path, output_path, args.outline)
+
+def dither_convert(input_path, output_path, add_outline=True):
+
     # Load and grayscale
-    img = Image.open(args.input_image)
+    img = load_input_image(input_path)
     img = ImageOps.grayscale(img)
     img = ImageOps.autocontrast(img)
 
@@ -113,17 +72,26 @@ def main():
     img = img.resize((150, 150), Image.LANCZOS)
 
     # Extract outline BEFORE dithering
-    outline = extract_outline(img, threshold= 255 - 8)
+    outline = extract_outline(img, threshold=255 - 8)
 
     # Dither interior
     dithered = img.convert("1")
 
-    # Combine: outline always wins (black)
-    combined = ImageChops.logical_and(dithered, outline)
+    if add_outline:
+        # Combine: outline always wins (black)
+        combined = ImageChops.logical_and(dithered, outline)
+    else:
+        combined = dithered
 
-    # Save
-    combined.save(args.output_image)
-    print(f"Saved: {args.output_image}")
+    if output_path:
+        combined.save(args.output_image)
+        print(f"Saved: {args.output_image}")
+    else:
+        copy_image_to_clipboard_windows(combined.convert("L"))
+        print("Saved result to system clipboard.")
+        show_image_with_cv2(combined.convert("L"))
+
+    return output_path
 
 
 if __name__ == "__main__":
