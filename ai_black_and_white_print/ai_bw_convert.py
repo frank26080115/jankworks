@@ -1,6 +1,8 @@
 import argparse
 import base64
 import sys
+from datetime import datetime
+from pathlib import Path
 from io import BytesIO
 
 import cv2
@@ -57,6 +59,18 @@ def image_to_line_art(input_path: str | None, output_path: str | None, additonal
     image_base64 = result.data[0].b64_json
     image_bytes = base64.b64decode(image_base64)
     img = Image.open(BytesIO(image_bytes)).convert("L")
+
+    # Store a timestamped history copy of the raw model output for troubleshooting
+    # and repeatability. This should never block the normal conversion pipeline.
+    try:
+        history_directory = Path.cwd() / "history"
+        history_directory.mkdir(parents=True, exist_ok=True)
+
+        timestamp_file_name = datetime.now().strftime("%Y%m%d-%H%M%S.png")
+        history_image_path = history_directory / timestamp_file_name
+        img.save(history_image_path, format="PNG")
+    except OSError as io_ex:
+        print(f"Unable to write history image: {io_ex!r}")
 
     # Contrast + binarize
     img = ImageOps.autocontrast(img)
