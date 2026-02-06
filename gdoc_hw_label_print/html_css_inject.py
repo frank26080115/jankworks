@@ -17,6 +17,7 @@ INJECTED_CSS = """
     margin-right: 0;
     padding-left: 0;
     padding-right: 0;
+    padding: 0;
   }
 
   table {
@@ -45,14 +46,20 @@ INJECTED_CSS = """
 
   td:first-child {
     padding-left: 0;
+    padding-right: 0;
+    border: none;
+    width: 0;
   }
 
   td:last-child {
+    padding-left: 0;
     padding-right: 0;
+    border: none;
+    width: 0;
   }
 
   td p span img {
-    max-height: 24mm;
+    max-height: 20mm;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -123,6 +130,14 @@ def process_html(html: str) -> str:
         r'<tr[\s\S]*?</tr>',
         process_row,
         html,
+    )
+
+    # 5. Remove inline style attributes from <span> and <img> tags
+    html = re.sub(
+        r'(<(?:span|img)\b[^>]*?)\s+style="[^"]*"([^>]*>)',
+        r'\1\2',
+        html,
+        flags=re.IGNORECASE,
     )
 
     return html
