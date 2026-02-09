@@ -46,7 +46,7 @@ INJECTED_CSS = """
   }
 
   td:first-child {
-    padding-left: 0;
+    padding-left: 4mm;
     padding-right: 0;
     border: none;
     width: 0;
