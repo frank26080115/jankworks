@@ -149,8 +149,8 @@ INJECTED_JS = """
         row.classList.add("print-me");
         row.classList.remove("hide-me");
 
-        cb.classList.add("print-me");
-        cb.classList.remove("hide-me");
+        cb.classList.add("hide-me");
+        cb.classList.remove("print-me");
       }
     });
   });
@@ -164,8 +164,8 @@ INJECTED_JS = """
         row.classList.remove("print-me");
         row.classList.add("hide-me");
 
-        cb.classList.remove("print-me");
-        cb.classList.add("hide-me");
+        cb.classList.remove("hide-me");
+        cb.classList.add("print-me");
       }
     });
   });
