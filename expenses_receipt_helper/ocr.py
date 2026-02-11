@@ -106,7 +106,7 @@ def extract_receipt_signature(lines: List[str]) -> str:
             d, m, y = parts
             y = norm_year(y)
             dt = datetime(y, int(m), int(d))
-            return dt.strftime("%d%m%Y")
+            return dt.strftime("%Y%m%d")
         except Exception:
             return None
 
