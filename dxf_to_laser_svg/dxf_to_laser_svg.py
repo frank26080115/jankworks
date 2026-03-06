@@ -37,12 +37,9 @@ class Group:
         self.paths.append(path)
 
     def to_svg(self, stroke_width):
-        content = "
-".join(p.to_svg(stroke_width) for p in self.paths)
+        content = "\n".join(p.to_svg(stroke_width) for p in self.paths)
         closed_flag = "true" if self.is_closed else "false"
-        return f'<g id="{self.name}" data-closed="{closed_flag}">
-{content}
-</g>'
+        return f'<g id="{self.name}" data-closed="{closed_flag}">\n{content}\n</g>'
 
 
 class Layer:
@@ -385,19 +382,109 @@ def main():
     # Group paths based on endpoint proximity
     path_groups = group_paths(paths, join_tolerance)
 
-    # Convert each group into an SVG Group
-    for idx, g in enumerate(path_groups):
+    # ---- Compute bounding boxes for each group ----
+    def group_bbox(group):
+        xs = []
+        ys = []
+        for p in group:
+            xs.extend([p.start_point()[0], p.end_point()[0]])
+            ys.extend([p.start_point()[1], p.end_point()[1]])
+        return min(xs), min(ys), max(xs), max(ys)
 
-        svg_group = Group(f"path_group_{idx}")
+    def bbox_size(bbox):
+        minx, miny, maxx, maxy = bbox
+        w = maxx - minx
+        h = maxy - miny
+        return max(w, h)
 
-        # Determine if this group forms a closed loop
-        svg_group.is_closed = group_is_closed(g, join_tolerance)
+    # attach metadata to groups
+    groups_meta = []
+    for g in path_groups:
+        bbox = group_bbox(g)
+        groups_meta.append({
+            "paths": g,
+            "bbox": bbox,
+            "size": bbox_size(bbox),
+            "closed": group_is_closed(g, join_tolerance)
+        })
 
-        for p in g:
+    # sort by size (smallest first)
+    groups_meta.sort(key=lambda x: x["size"])
+
+    # simple point-in-bbox test used as fast prefilter
+    def bbox_contains(b1, b2):
+        return b1[0] <= b2[0] and b1[1] <= b2[1] and b1[2] >= b2[2] and b1[3] >= b2[3]
+
+    # determine containment relationships
+    for g in groups_meta:
+        g["contains"] = []
+        g["contained_by"] = None
+
+    for i, small in enumerate(groups_meta):
+        for j, big in enumerate(groups_meta):
+            if i == j:
+                continue
+            if bbox_contains(big["bbox"], small["bbox"]):
+                small["contained_by"] = big
+                big["contains"].append(small)
+                break
+
+    tiny_islands = []
+    tiny_holes = []
+    enclosing_roots = []
+    remaining = []
+
+    for g in groups_meta:
+        if not g["contains"] and g["contained_by"] is None:
+            tiny_islands.append(g)
+        elif not g["contains"]:
+            tiny_holes.append(g)
+        elif g["contains"] and g["contained_by"] is None:
+            enclosing_roots.append(g)
+        else:
+            remaining.append(g)
+
+    # bottom layer 1 (standalone islands)
+    islands_layer = Layer("islands")
+    for idx, g in enumerate(tiny_islands):
+        svg_group = Group(f"island_{idx}")
+        svg_group.is_closed = g["closed"]
+        for p in g["paths"]:
             svg_group.add_path(p)
+        holes_layer.add_group(svg_group)
 
-        layer.add_group(svg_group)
-    svg.add_layer(layer)
+    # bottom layer 2 (tiny holes)
+    holes_layer = Layer("tiny_holes")
+    for idx, g in enumerate(tiny_holes):
+        svg_group = Group(f"tiny_{idx}")
+        svg_group.is_closed = g["closed"]
+        for p in g["paths"]:
+            svg_group.add_path(p)
+        holes_layer.add_group(svg_group)
+
+    # middle layer (nested remaining groups)
+    middle_layer = Layer("nested_geometry")
+    for idx, g in enumerate(remaining):
+        svg_group = Group(f"nested_{idx}")
+        svg_group.is_closed = g["closed"]
+        for p in g["paths"]:
+            svg_group.add_path(p)
+        middle_layer.add_group(svg_group)
+
+    # top layer (large enclosing shapes)
+    outer_layer = Layer("outer_loops")
+    for idx, g in enumerate(enclosing_roots):
+        svg_group = Group(f"outer_{idx}")
+        svg_group.is_closed = g["closed"]
+        for p in g["paths"]:
+            svg_group.add_path(p)
+        outer_layer.add_group(svg_group)
+
+    # SVG layer order: outer first (top), nested middle, holes last
+    svg.add_layer(outer_layer)
+    svg.add_layer(middle_layer)
+    svg.add_layer(holes_layer)
+    svg.add_layer(islands_layer)
 
     svg_text = svg.to_svg()
 
