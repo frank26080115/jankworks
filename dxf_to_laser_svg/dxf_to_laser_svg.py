@@ -31,13 +31,18 @@ class Group:
     def __init__(self, name):
         self.name = name
         self.paths = []
+        self.is_closed = False
 
     def add_path(self, path: PathElement):
         self.paths.append(path)
 
     def to_svg(self, stroke_width):
-        content = "\n".join(p.to_svg(stroke_width) for p in self.paths)
-        return f'<g id="{self.name}">{content}</g>'
+        content = "
+".join(p.to_svg(stroke_width) for p in self.paths)
+        closed_flag = "true" if self.is_closed else "false"
+        return f'<g id="{self.name}" data-closed="{closed_flag}">
+{content}
+</g>'
 
 
 class Layer:
@@ -225,6 +230,51 @@ def parse_args():
 
 # -----------------------------
 # Path grouping helpers
+
+
+def endpoints_of_path(p):
+    return [p.start_point(), p.end_point()]
+
+
+def group_is_closed(group, tol):
+    """
+    Determine if a group forms a fully enclosed loop.
+    Each endpoint must have another endpoint within tolerance.
+    """
+
+    endpoints = []
+
+    for p in group:
+        endpoints.extend(endpoints_of_path(p))
+
+    used = [False] * len(endpoints)
+
+    for i, a in enumerate(endpoints):
+
+        if used[i]:
+            continue
+
+        found = False
+
+        for j, b in enumerate(endpoints):
+
+            if i == j or used[j]:
+                continue
+
+            if distance(a, b) <= tol:
+                used[i] = True
+                used[j] = True
+                found = True
+                break
+
+        if not found:
+            return False
+
+    return True
+
+
+# -----------------------------
+# Path grouping helpers
 # -----------------------------
 
 def distance(a, b):
@@ -339,6 +389,9 @@ def main():
     for idx, g in enumerate(path_groups):
 
         svg_group = Group(f"path_group_{idx}")
+
+        # Determine if this group forms a closed loop
+        svg_group.is_closed = group_is_closed(g, join_tolerance)
 
         for p in g:
             svg_group.add_path(p)
