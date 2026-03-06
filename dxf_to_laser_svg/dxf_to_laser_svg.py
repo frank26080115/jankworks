@@ -224,6 +224,78 @@ def parse_args():
 
 
 # -----------------------------
+# Path grouping helpers
+# -----------------------------
+
+def distance(a, b):
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    return math.hypot(dx, dy)
+
+
+def paths_touch(p1: PathElement, p2: PathElement, tol):
+    """Return True if endpoints of two paths are within tolerance."""
+
+    s1 = p1.start_point()
+    e1 = p1.end_point()
+    s2 = p2.start_point()
+    e2 = p2.end_point()
+
+    if distance(e1, s2) <= tol:
+        return True
+
+    if distance(e1, e2) <= tol:
+        return True
+
+    if distance(s1, s2) <= tol:
+        return True
+
+    if distance(s1, e2) <= tol:
+        return True
+
+    return False
+
+
+def group_paths(paths, tol):
+    """
+    Group paths that share endpoints within tolerance.
+    Each path will belong to exactly one group.
+    """
+
+    groups = []
+    used = set()
+
+    for i, path_i in enumerate(paths):
+
+        if i in used:
+            continue
+
+        group = [path_i]
+        used.add(i)
+
+        changed = True
+
+        while changed:
+            changed = False
+
+            for j, path_j in enumerate(paths):
+
+                if j in used:
+                    continue
+
+                for g in group:
+                    if paths_touch(g, path_j, tol):
+                        group.append(path_j)
+                        used.add(j)
+                        changed = True
+                        break
+
+        groups.append(group)
+
+    return groups
+
+
+# -----------------------------
 # Main
 # -----------------------------
 
@@ -251,14 +323,27 @@ def main():
     svg = SVG(stroke_width=args.stroke_width)
 
     layer = Layer("geometry")
-    group = Group("dxf_entities")
+
+    # Convert DXF entities into PathElement list
+    paths = []
 
     for entity in msp:
         path = entity_to_path(entity)
         if path:
-            group.add_path(path)
+            paths.append(path)
 
-    layer.add_group(group)
+    # Group paths based on endpoint proximity
+    path_groups = group_paths(paths, join_tolerance)
+
+    # Convert each group into an SVG Group
+    for idx, g in enumerate(path_groups):
+
+        svg_group = Group(f"path_group_{idx}")
+
+        for p in g:
+            svg_group.add_path(p)
+
+        layer.add_group(svg_group)
     svg.add_layer(layer)
 
     svg_text = svg.to_svg()
