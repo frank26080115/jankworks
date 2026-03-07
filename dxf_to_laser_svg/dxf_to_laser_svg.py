@@ -50,27 +50,29 @@ class Layer:
     def add_group(self, group: Group):
         self.groups.append(group)
 
-    def to_svg(self, stroke_width):
+    def to_svg(self, stroke_width, offset_x=0, offset_y=0):
         content = "\n".join(g.to_svg(stroke_width) for g in self.groups)
         return (
-            f'<g inkscape:label="{self.name}" inkscape:groupmode="layer">\n'
+            f'<g inkscape:label="{self.name}" inkscape:groupmode="layer" transform="translate({offset_x},{offset_y})">\n'
             f'{content}\n'
             f'</g>'
         )
 
 
 class SVG:
-    def __init__(self, width=1000, height=1000, stroke_width=0.1):
+    def __init__(self, width=1000, height=1000, stroke_width=0.1, offset_x=0, offset_y=0):
         self.width = width
         self.height = height
         self.stroke_width = stroke_width
+        self.offset_x = offset_x
+        self.offset_y = offset_y
         self.layers = []
 
     def add_layer(self, layer: Layer):
         self.layers.append(layer)
 
     def to_svg(self):
-        layers_svg = "\n".join(layer.to_svg(self.stroke_width) for layer in self.layers)
+        layers_svg = "\n".join(layer.to_svg(self.stroke_width, self.offset_x, self.offset_y) for layer in self.layers)
         return f'''<svg xmlns="http://www.w3.org/2000/svg"
     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
     width="{self.width}mm" height="{self.height}mm"
@@ -222,6 +224,27 @@ def parse_args():
         help="SVG stroke width in mm"
     )
 
+    parser.add_argument(
+        "--page-width",
+        type=float,
+        default=297,
+        help="SVG page width in mm"
+    )
+
+    parser.add_argument(
+        "--page-height",
+        type=float,
+        default=210,
+        help="SVG page height in mm"
+    )
+
+    parser.add_argument(
+        "--page-margin",
+        type=float,
+        default=5,
+        help="SVG page margin in mm"
+    )
+
     return parser.parse_args()
 
 
@@ -367,7 +390,7 @@ def main():
     doc = ezdxf.readfile(input_path)
     msp = doc.modelspace()
 
-    svg = SVG(stroke_width=args.stroke_width)
+    svg = SVG(width=args.page_width, height=args.page_height, stroke_width=args.stroke_width)
 
     layer = Layer("geometry")
 
@@ -485,6 +508,36 @@ def main():
     svg.add_layer(middle_layer)
     svg.add_layer(holes_layer)
     svg.add_layer(islands_layer)
+
+    # -----------------------------
+    # Compute overall bounding box and translate into positive space
+    # -----------------------------
+
+    global_minx = float("inf")
+    global_miny = float("inf")
+    global_maxx = float("-inf")
+    global_maxy = float("-inf")
+
+    for g in groups_meta:
+        minx, miny, maxx, maxy = g["bbox"]
+        global_minx = min(global_minx, minx)
+        global_miny = min(global_miny, miny)
+        global_maxx = max(global_maxx, maxx)
+        global_maxy = max(global_maxy, maxy)
+
+    offset_x = -global_minx
+    offset_y = -global_miny
+
+    svg.offset_x = offset_x + args.page_margin
+    svg.offset_y = offset_y + args.page_margin
+
+    overall_width = global_maxx - global_minx
+    overall_height = global_maxy - global_miny
+
+    print(f"Geometry size: {overall_width:.2f} mm x {overall_height:.2f} mm")
+
+    if overall_width > svg.width or overall_height > svg.height:
+        print("WARNING: geometry exceeds page size")
 
     svg_text = svg.to_svg()
 

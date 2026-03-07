@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg"
     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-    width="1000mm" height="1000mm"
-    viewBox="0 0 1000 1000">
-<g inkscape:label="outer_loops" inkscape:groupmode="layer">
+    width="297mm" height="210mm"
+    viewBox="0 0 297 210">
+<g inkscape:label="outer_loops" inkscape:groupmode="layer" transform="translate(-115.81595693402352,33.46858799260387)">
 <g id="outer_0" data-closed="true">
 <path d="M 126.62444588159046 -1.9496407719300868 A 1.5 1.5 0 0 1 125.29772909176391 0.7406747410892205" fill="none" stroke="black" stroke-width="0.1mm" />
 <path d="M 126.62444588159042 -1.9496407719300457 A 49.99999999999999 49.99999999999999 0 0 1 128.39651078599826 -5.018947220674114" fill="none" stroke="black" stroke-width="0.1mm" />
@@ -102,10 +102,10 @@
 <path d="M 123.94144933177894 4.015023732017042 A 49.99999999999999 49.99999999999999 0 0 1 125.29772909176393 0.7406747410891974" fill="none" stroke="black" stroke-width="0.1mm" />
 </g>
 </g>
-<g inkscape:label="nested_geometry" inkscape:groupmode="layer">
+<g inkscape:label="nested_geometry" inkscape:groupmode="layer" transform="translate(-115.81595693402352,33.46858799260387)">
 
 </g>
-<g inkscape:label="tiny_holes" inkscape:groupmode="layer">
+<g inkscape:label="tiny_holes" inkscape:groupmode="layer" transform="translate(-115.81595693402352,33.46858799260387)">
 <g id="tiny_0" data-closed="true">
 <path d="M 209.4997918500247 24.12871892441429 A 1.500000000000012 1.500000000000012 0 1 0 206.4997918500247 24.12871892441429 A 1.500000000000012 1.500000000000012 0 1 0 209.4997918500247 24.12871892441429" fill="none" stroke="black" stroke-width="0.1mm" />
 </g>
@@ -338,7 +338,7 @@
 <path d="M 172.1845449266271 7.499999999999702 A 1.4 1.4 0 1 0 169.3845449266271 7.499999999999702 A 1.4 1.4 0 1 0 172.1845449266271 7.499999999999702" fill="none" stroke="black" stroke-width="0.1mm" />
 </g>
 </g>
-<g inkscape:label="islands" inkscape:groupmode="layer">
+<g inkscape:label="islands" inkscape:groupmode="layer" transform="translate(-115.81595693402352,33.46858799260387)">
 
 </g>
 </svg>
