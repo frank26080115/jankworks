@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import cv2
 
-def generate_interference(frequency, num_slits, spacing, phase_step, height):
+def generate_interference(frequency, num_slits, spacing, phase_step, height, show_energy = False):
     width = int(height + (num_slits - 1) * spacing + height)
 
     x = np.arange(width)
@@ -25,6 +25,9 @@ def generate_interference(frequency, num_slits, spacing, phase_step, height):
 
         total_wave += wave
 
+    if show_energy:
+        total_wave = total_wave ** 2
+
     # Get extrema
     max_val = total_wave.max()
     min_val = total_wave.min()
@@ -39,7 +42,7 @@ def generate_interference(frequency, num_slits, spacing, phase_step, height):
     # Hue: OpenCV uses 0–179
     # Red = 0, Green ≈ 60
     hsv[..., 0][pos_mask] = 0
-    hsv[..., 0][neg_mask] = 60
+    hsv[..., 0][neg_mask] = 60 if not show_energy else 0
 
     # Saturation = max
     hsv[..., 1] = 255
@@ -55,7 +58,7 @@ def generate_interference(frequency, num_slits, spacing, phase_step, height):
         V[neg_mask] = np.abs(total_wave[neg_mask]) / abs(min_val)
 
     # perceptual curve
-    gamma = 2
+    gamma = 2 if not show_energy else 1
     V = V ** gamma
 
     # Convert to 0–255
@@ -83,6 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("spacing", type=float)
     parser.add_argument("phase_step", type=float)
     parser.add_argument("height", type=int)
+    parser.add_argument("--show-energy", action='store_true')
 
     args = parser.parse_args()
 
@@ -91,5 +95,6 @@ if __name__ == "__main__":
         args.num_slits,
         args.spacing,
         args.phase_step,
-        args.height
+        args.height,
+        args.show_energy
     )
