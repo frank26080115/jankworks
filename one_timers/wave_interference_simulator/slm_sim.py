@@ -1,76 +1,17 @@
 import numpy as np
-import cv2
-
-MODES = ["beam", "lens", "vortex", "cube"]
-
-def generate_phase_pattern(width, height, mode, angle_x, angle_y):
-    x = np.linspace(-1, 1, width)
-    y = np.linspace(-1, 1, height)
-    xv, yv = np.meshgrid(x, y)
-
-    if mode == "beam":
-        phase = angle_x * xv + angle_y * yv
-
-    elif mode == "lens":
-        phase = (xv**2 + yv**2) * 10.0
-
-    elif mode == "vortex":
-        phase = np.arctan2(yv, xv)
-
-    elif mode == "cube":
-        points = generate_cube_points()
-        phase = cube_phase(width, height, points)
-
-    else:
-        phase = np.zeros_like(xv)
-
-    return phase
+import argparse
+import time
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
-def simulate_slm(phase):
-    field = np.exp(1j * phase)
-
-    fft = np.fft.fftshift(np.fft.fft2(field))
-    intensity = np.abs(fft) ** 2
-
-    intensity /= np.max(intensity) + 1e-8
-
-    # Log scaling for visibility
-    intensity = np.log1p(10 * intensity) / np.log1p(10)
-
-    return (intensity * 255).astype(np.uint8)
-
-
-def cube_phase(width, height, points):
-    x = np.linspace(-1, 1, width)
-    y = np.linspace(-1, 1, height)
-    xv, yv = np.meshgrid(x, y)
-
-    field = np.zeros((height, width), dtype=np.complex64)
-
-    for (px, py, pz) in points:
-        # Perspective-ish projection
-        scale = 1.0 / (pz + 2.0)
-
-        kx = px * scale * 20
-        ky = py * scale * 20
-
-        phase = kx * xv + ky * yv
-
-        field += np.exp(1j * phase)
-
-    # Convert to phase-only SLM
-    phase_only = np.angle(field)
-
-    return phase_only
-
-
-def generate_cube_points(size=0.8, resolution=12):
+# -----------------------------
+# Cube generation
+# -----------------------------
+def generate_cube_points(size=0.8, resolution=10):
+    coords = np.linspace(-size, size, resolution)
     points = []
 
-    coords = np.linspace(-size, size, resolution)
-
-    # Only edges of cube
     for x in coords:
         for y in coords:
             for z in coords:
@@ -80,66 +21,221 @@ def generate_cube_points(size=0.8, resolution=12):
                     abs(z) == size
                 ])
                 if edge_count >= 2:
-                    points.append((x, y, z))
+                    points.append([x, y, z])
 
-    return points
+    return np.array(points)
+
+# -----------------------------
+# GS
+# -----------------------------
+def gerchberg_saxton_2d(target, iterations=100):
+    h, w = target.shape
+
+    phase = np.random.rand(h, w) * 2 * np.pi
+    field = np.exp(1j * phase)
+
+    target_amp = np.sqrt(target)
+
+    for _ in range(iterations):
+        spectrum = np.fft.fft2(field)
+        spectrum = target_amp * np.exp(1j * np.angle(spectrum))
+        field = np.fft.ifft2(spectrum)
+        field = np.exp(1j * np.angle(field))
+
+    return np.angle(field)
 
 
-def print_state(action, mode, angle_x, angle_y):
-    print(f"[{action}] Mode={mode} | angle_x={angle_x:.1f} | angle_y={angle_y:.1f}")
+# -----------------------------
+# Reconstruction (Intensity)
+# -----------------------------
+def reconstruct_intensity_from_phase(phase_map):
+    field = np.exp(1j * phase_map)
+
+    fft = np.fft.fftshift(np.fft.fft2(field))
+    intensity = np.abs(fft) ** 2
+
+    # normalize for visualization
+    intensity /= np.max(intensity) + 1e-8
+
+    return intensity
 
 
+# -----------------------------
+# Rotation
+# -----------------------------
+def rotation_matrix(roll, pitch, yaw):
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll),  np.cos(roll)]
+    ])
+
+    Ry = np.array([
+        [ np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    Rz = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw),  np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    return Rz @ Ry @ Rx
+
+
+# -----------------------------
+# Phase map (SLM)
+# -----------------------------
+def cube_phase(width, height, points):
+    x = np.linspace(-1, 1, width)
+    y = np.linspace(-1, 1, height)
+    xv, yv = np.meshgrid(x, y)
+
+    field = np.zeros((height, width), dtype=np.complex64)
+
+    for (px, py, pz) in points:
+        scale = 1.0 / (pz + 2.0)
+
+        kx = px * scale * 20
+        ky = py * scale * 20
+
+        phase = kx * xv + ky * yv
+        field += np.exp(1j * phase)
+
+    phase_map = np.angle(field)
+
+    return phase_map
+
+
+def cube_to_target(points, width, height):
+    target = np.zeros((height, width), dtype=np.float32)
+
+    for (px, py, pz) in points:
+        scale = 1.0 / (pz + 2.0)
+
+        x = int((px * scale * 0.5 + 0.5) * (width - 1))
+        y = int((py * scale * 0.5 + 0.5) * (height - 1))
+
+        if 0 <= x < width and 0 <= y < height:
+            target[y, x] = 1.0
+
+    return target
+
+
+# -----------------------------
+# Main
+# -----------------------------
 def main():
-    width, height = 512, 512
+    parser = argparse.ArgumentParser()
 
-    angle_x = 0.0
-    angle_y = 0.0
-    step = 5.0
-    max_angle = 100.0
+    parser.add_argument("--size", type=float, default=0.8)
+    parser.add_argument("--points", type=int, default=10)
 
-    mode_index = 0
-    mode = MODES[mode_index]
+    parser.add_argument("--roll", type=float, default=0.0)
+    parser.add_argument("--pitch", type=float, default=0.0)
+    parser.add_argument("--yaw", type=float, default=0.0)
 
-    print("Controls: Arrow keys = steer | m = change mode | ESC = exit")
-    print_state("INIT", mode, angle_x, angle_y)
+    parser.add_argument("--method", choices=["direct", "gs"], default="direct")
+    parser.add_argument("--iterations", type=int, default=100)
 
-    while True:
-        phase = generate_phase_pattern(width, height, mode, angle_x, angle_y)
-        image = simulate_slm(phase)
+    args = parser.parse_args()
 
-        cv2.imshow("SLM Simulator", image)
+    # Convert degrees → radians
+    roll = np.deg2rad(args.roll)
+    pitch = np.deg2rad(args.pitch)
+    yaw = np.deg2rad(args.yaw)
 
-        key = cv2.waitKeyEx(0)
+    # Generate cube
+    points = generate_cube_points(args.size, args.points)
 
-        if key == 27:  # ESC
-            print("Exiting.")
-            break
+    # Apply rotation
+    R = rotation_matrix(roll, pitch, yaw)
+    points = points @ R.T
 
-        elif key == ord('m'):
-            mode_index = (mode_index + 1) % len(MODES)
-            mode = MODES[mode_index]
-            print_state("MODE CHANGE", mode, angle_x, angle_y)
+    # Generate phase map
+    width = 128
+    height = 128
 
-        elif key == 2424832:  # LEFT
-            angle_x = max(angle_x - step, -max_angle)
-            print_state("LEFT", mode, angle_x, angle_y)
+    start_time = time.time()
 
-        elif key == 2555904:  # RIGHT
-            angle_x = min(angle_x + step, max_angle)
-            print_state("RIGHT", mode, angle_x, angle_y)
+    if args.method == "direct":
+        phase_map = cube_phase(width, height, points)
 
-        elif key == 2490368:  # UP
-            angle_y = max(angle_y - step, -max_angle)
-            print_state("UP", mode, angle_x, angle_y)
+    elif args.method == "gs":
+        target = cube_to_target(points, width, height)
+        phase_map = gerchberg_saxton_2d(target, iterations=args.iterations)
 
-        elif key == 2621440:  # DOWN
-            angle_y = min(angle_y + step, max_angle)
-            print_state("DOWN", mode, angle_x, angle_y)
+    end_time = time.time()
+    elapsed = end_time - start_time
 
-        else:
-            print(f"Unknown key: {key}")
+    intensity = reconstruct_intensity_from_phase(phase_map)
 
-    cv2.destroyAllWindows()
+    print("\n--- Performance Stats ---")
+    print(f"Method: {args.method}")
+    print(f"Points: {len(points)}")
+    print(f"Resolution: {width}x{height}")
+
+    if args.method == "gs":
+        print(f"Iterations: {args.iterations}")
+        print(f"Time per iteration: {elapsed / args.iterations:.6f} s")
+
+    print(f"Total time: {elapsed:.4f} s")
+    print("------------------------\n")
+
+    # -----------------------------
+    # Plotting
+    # -----------------------------
+    fig = make_subplots(
+        rows=1, cols=3,
+        specs=[[{"type": "scatter3d"}, {"type": "surface"}, {"type": "surface"}]],
+        subplot_titles=(
+            "3D Cube (Point Cloud)",
+            "SLM Phase Map",
+            "Reconstructed Intensity (Far Field)"
+        )
+    )
+
+    # Cube plot
+    fig.add_trace(
+        go.Scatter3d(
+            x=points[:, 0],
+            y=points[:, 1],
+            z=points[:, 2],
+            mode='markers',
+            marker=dict(size=3)
+        ),
+        row=1, col=1
+    )
+
+    # Phase surface (scaled by pi)
+    fig.add_trace(
+        go.Surface(
+            z=phase_map / np.pi,
+            colorscale='HSV'
+        ),
+        row=1, col=2
+    )
+
+    # Reconstructed
+    fig.add_trace(
+        go.Surface(
+            z=intensity,
+            colorscale='Viridis'
+        ),
+        row=1, col=3
+    )
+
+    fig.update_layout(
+        title="SLM Cube Projection Visualization",
+        showlegend=False,
+        scene=dict(aspectmode='cube'),
+        scene2=dict(aspectmode='cube'),
+        scene3=dict(aspectmode='cube')
+    )
+
+    fig.show()
 
 
 if __name__ == "__main__":
