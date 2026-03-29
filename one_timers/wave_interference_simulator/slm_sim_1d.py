@@ -87,7 +87,7 @@ def generate_interference(frequency, phases, spacing, height, show_energy=False)
 
         r = np.sqrt((xv - slit_x)**2 + (yv - slit_y)**2)
 
-        phase = phases[i]  # 👈 KEY CHANGE
+        phase = phases[i]
         wave = np.sin(k * r + phase)
 
         total_wave += wave
@@ -129,7 +129,7 @@ def generate_interference(frequency, phases, spacing, height, show_energy=False)
     return bgr
 
 
-def simulate_interference(phases, height, frequency=5, spacing=3, show_energy=True):
+def simulate_interference(phases, height, frequency=5, spacing=1, show_energy=True):
     """
     Wrapper that feeds GS phases into the wave visualization.
     """
