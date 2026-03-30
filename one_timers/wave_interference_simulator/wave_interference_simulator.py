@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import cv2
 
-def generate_interference(frequency, num_slits, spacing, phase_step, height, show_energy = False):
+def generate_interference(frequency, num_slits, spacing, phase_step, height, init_phase = 0, show_energy = False, show_positive = False):
     width = int(height + (num_slits - 1) * spacing + height)
 
     x = np.arange(width)
@@ -20,10 +20,13 @@ def generate_interference(frequency, num_slits, spacing, phase_step, height, sho
 
         r = np.sqrt((xv - slit_x)**2 + (yv - slit_y)**2)
 
-        phase = i * phase_step
+        phase = init_phase + ((i + 1) * phase_step)
         wave = np.sin(k * r + phase)
 
-        total_wave += wave
+        if not show_positive:
+            total_wave += wave
+        else:
+            total_wave += np.abs(wave)
 
     if show_energy:
         total_wave = total_wave ** 2
@@ -86,7 +89,9 @@ if __name__ == "__main__":
     parser.add_argument("spacing", type=float)
     parser.add_argument("phase_step", type=float)
     parser.add_argument("height", type=int)
+    parser.add_argument("--init-phase", type=float, default=0)
     parser.add_argument("--show-energy", action='store_true')
+    parser.add_argument("--show-positive", action='store_true')
 
     args = parser.parse_args()
 
@@ -96,5 +101,7 @@ if __name__ == "__main__":
         args.spacing,
         args.phase_step,
         args.height,
-        args.show_energy
+        args.init_phase,
+        args.show_energy,
+        args.show_positive
     )
