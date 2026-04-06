@@ -56,7 +56,7 @@ def get_local_ip():
         return None
 
 
-def get_default_gateways():
+def get_default_gateways(local_ip=None):
     gateways = set()
 
     try:
@@ -85,17 +85,34 @@ def get_default_gateways():
         print(f"[!] Gateway detection failed: {e}")
 
     # Fallback (your old guessing, but now as backup only)
-    if not gateways:
-        print("[!] Falling back to common gateway guesses")
-        gateways.update([
-            "192.168.1.1",
-            "192.168.0.1",
-            "10.0.0.1",
-            "172.16.0.1",
-        ])
+    return build_gateway_candidates(local_ip=local_ip)
 
-    print(f"[*] Gateways found: {list(gateways)}")
-    return list(gateways)
+
+def build_gateway_candidates(local_ip=None):
+    if local_ip is None:
+        local_ip = get_local_ip()
+
+    candidates = set()
+
+    if local_ip:
+        parts = local_ip.split(".")
+        if len(parts) == 4:
+            base = ".".join(parts[:3])
+            candidates.add(base + ".1")
+            candidates.add(base + ".254")
+
+    # Common defaults
+    common = [
+        "192.168.1.1",
+        "192.168.0.1",
+        "10.0.0.1",
+        "172.16.0.1",
+    ]
+
+    candidates.update(common)
+
+    print(f"[*] Gateway candidates: {list(candidates)}")
+    return list(candidates)
 
 
 def parse_query(url):
@@ -176,7 +193,7 @@ def try_login():
             session = requests.Session()
 
             local_ip = get_local_ip()
-            gateways = build_gateway_candidates(local_ip)
+            gateways = get_default_gateways(local_ip=local_ip)
 
             for gw in gateways:
                 if attempt_portal_flow(session, gw):
@@ -203,7 +220,8 @@ def main(run_once=False):
                 print("[*] No internet, attempting login...")
                 try_login()
             else:
-                #print("[*] Nothing to do, sleeping...")
+                if run_once:
+                    print("[*] Nothing to do, sleeping...")
                 pass
 
         except Exception as e:
