@@ -1,6 +1,7 @@
 import argparse
 import time
 import requests
+import urllib3
 import urllib.parse
 import socket
 import subprocess
@@ -125,6 +126,10 @@ def attempt_portal_flow(session, gateway_ip):
     try:
         print(f"[*] Trying gateway: {gateway_ip}")
         url = f"http://{gateway_ip}"
+
+        # for HTTP/HTTPS weirdness
+        session.verify = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         # Step 1: hit gateway
         r = session.get(url, timeout=5, headers=HEADERS, allow_redirects=True)
