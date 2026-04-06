@@ -203,7 +203,8 @@ def main(run_once=False):
                 print("[*] No internet, attempting login...")
                 try_login()
             else:
-                print("[*] Nothing to do, sleeping...")
+                #print("[*] Nothing to do, sleeping...")
+                pass
 
         except Exception as e:
             print(f"[!] Top-level error caught: {e}")
