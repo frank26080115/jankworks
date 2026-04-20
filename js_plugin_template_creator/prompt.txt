@@ -1,0 +1,15 @@
+write me a python script
+
+use argparse, let the user specify a directory
+
+open the directory, and look for JS files and CSS files
+
+add a "output" directory to the specified directory and use it as a workspace
+
+for each of the files, make a copy of it in the output directory that is minified (this is really just a temporary file for debugging), and at the bottom of the temp file on a separate line and as a comment, put the encoded base64 string, these are for debugging purposes.
+
+at the same time, in the output directory, make a file named "plugin_template.js", inside it should be a function called "function plugin_load_assets()", inside this function, For every JS file encountered, run `eval()` on the encoded base64 version of that file (no comments from it) but obviously after a decoding step, keep it all in one line for each file. For every CSS file, have the base64 string of that minified file (no comments from it), decode it, and insert it as a style element as the last child of `<head>`
+
+try to keep each one of these on one line, use comments to indicate the file at the end of each line
+
+then write a blank function `function elrs_plugin_init()` and it only calls `plugin_load_assets`
