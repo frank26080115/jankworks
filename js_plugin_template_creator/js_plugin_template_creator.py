@@ -322,7 +322,13 @@ def build_plugin_template(
 
     lines.append("}")
     lines.append("")
-    lines.append("function elrs_plugin_init(){")
+    lines.append("function elrs_plugin_init(arg){")
+    lines.append("    let plugin_config=null;")
+    lines.append("    if(arg!==undefined){")
+    lines.append('        if(arg!==null&&typeof arg==="object"&&!Array.isArray(arg)){')
+    lines.append("            plugin_config=arg;")
+    lines.append("        }")
+    lines.append("    }")
     lines.append("    plugin_load_assets();")
     lines.append("}")
 
@@ -386,7 +392,10 @@ def main() -> int:
         dataurl_files,
         dataurl_by_path,
     )
-    (output_dir / "plugin_template.js").write_text(plugin_template, encoding="utf-8", newline="\n")
+
+    plugin_template_path = output_dir / "plugin_template.js"
+    plugin_template_path.write_text(plugin_template, encoding="utf-8", newline="\n")
+    plugin_template_size = plugin_template_path.stat().st_size
 
     print(f"Scanned: {root}")
     print(f"Output:  {output_dir}")
@@ -395,7 +404,8 @@ def main() -> int:
     print(f"CSS files: {len(css_files)}")
     print(f"HTML files: {len(html_files)}")
     print(f"Data URL files: {len(dataurl_files)}")
-    print(f"Wrote: {output_dir / 'plugin_template.js'}")
+    print(f"Wrote: {plugin_template_path}")
+    print(f"plugin_template.js size: {plugin_template_size} bytes")
 
     return 0
 
