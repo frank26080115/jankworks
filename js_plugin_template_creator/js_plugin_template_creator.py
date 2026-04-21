@@ -92,7 +92,8 @@ def parse_args() -> argparse.Namespace:
 def find_assets(
     root: Path,
     output_dir: Path,
-) -> tuple[list[Path], list[Path], list[Path], list[Path]]:
+) -> tuple[list[Path], list[Path], list[Path], list[Path], list[Path]]:
+    cfg_js_files: list[Path] = []
     js_files: list[Path] = []
     css_files: list[Path] = []
     html_files: list[Path] = []
@@ -110,7 +111,9 @@ def find_assets(
             pass
 
         suffix = path.suffix.lower()
-        if suffix == ".js":
+        if path.name.lower().endswith(".cfg.js"):
+            cfg_js_files.append(path)
+        elif suffix == ".js":
             js_files.append(path)
         elif suffix == ".css":
             css_files.append(path)
@@ -120,11 +123,12 @@ def find_assets(
         if suffix in DATA_URL_EXTENSIONS:
             dataurl_files.append(path)
 
+    cfg_js_files.sort(key=lambda p: str(p.relative_to(root)).lower())
     js_files.sort(key=lambda p: str(p.relative_to(root)).lower())
     css_files.sort(key=lambda p: str(p.relative_to(root)).lower())
     html_files.sort(key=lambda p: str(p.relative_to(root)).lower())
     dataurl_files.sort(key=lambda p: str(p.relative_to(root)).lower())
-    return js_files, css_files, html_files, dataurl_files
+    return cfg_js_files, js_files, css_files, html_files, dataurl_files
 
 
 def minify_text(text: str, suffix: str) -> str:
@@ -250,6 +254,7 @@ def build_data_url(path: Path) -> str:
 
 def build_plugin_template(
     root: Path,
+    cfg_js_files: list[Path],
     js_files: list[Path],
     css_files: list[Path],
     html_files: list[Path],
@@ -258,6 +263,15 @@ def build_plugin_template(
     dataurl_by_path: dict[Path, str],
 ) -> str:
     lines: list[str] = []
+
+    cfg_js_files.sort(key=lambda path: path.name)
+    for path in cfg_js_files:
+        rel = path.relative_to(root).as_posix()
+        if len(cfg_js_files) > 1:
+            lines.append(f"// {rel}")
+        lines.extend(path.read_text(encoding="utf-8").splitlines())
+        lines.append("")
+
     dataurl_variable_names = build_dataurl_variable_names(dataurl_files)
 
     for path in dataurl_files:
@@ -327,7 +341,7 @@ def main() -> int:
     output_dir = root / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    js_files, css_files, html_files, dataurl_files = find_assets(root, output_dir)
+    cfg_js_files, js_files, css_files, html_files, dataurl_files = find_assets(root, output_dir)
     all_files = js_files + css_files + html_files
 
     encoded_by_path: dict[Path, str] = {}
@@ -364,6 +378,7 @@ def main() -> int:
 
     plugin_template = build_plugin_template(
         root,
+        cfg_js_files,
         js_files,
         css_files,
         html_files,
@@ -375,6 +390,7 @@ def main() -> int:
 
     print(f"Scanned: {root}")
     print(f"Output:  {output_dir}")
+    print(f"Config JS files: {len(cfg_js_files)}")
     print(f"JS files:  {len(js_files)}")
     print(f"CSS files: {len(css_files)}")
     print(f"HTML files: {len(html_files)}")

@@ -4,5 +4,5 @@ function runDemoTextReplacement() {
         return;
     }
 
-    target.textContent = "The demo JavaScript replaced the original text successfully.";
+    target.textContent = whale_talk;
 }
