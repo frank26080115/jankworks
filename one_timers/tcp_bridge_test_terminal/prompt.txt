@@ -1,0 +1,17 @@
+write the `one_timers\tcp_bridge_test_terminal\tcp_bridge_test_terminal.py` python script
+
+use argparse, let the user specify a remote IP address (but optional, default is "10.0.0.1"), and also optionally a port number (with a default of 65102)
+
+at all points, make sure CTRL-C will exit the script
+
+all console messages should start with the time, with 1 decimal place of seconds precision
+
+the script will try to establish and maintain a TCP connection to the specified remote IP on the specified port, if connection is lost, reattempt to reconnect every 5 seconds, with notifications in the console.
+
+and the user can type in strings, ending with the enter key, when enter is pressed, the string, including the final new-line, is sent to the remote
+
+every 1 second regardless of what the input state is, check for a message from the remote, it will be ASCII, print it on the screen as a line (regardless if the message ended with new-line), with the time header
+
+handle all exceptions but make sure CTRL-C will exit the script
+
+the purpose is to test a Wi-Fi device that is acting as a TCP-to-UART bridge, and the RX and TX pins will be shorted together to create an echo

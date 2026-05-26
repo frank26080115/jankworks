@@ -1,0 +1,19 @@
+work on `dxf_comparison\dxf_comparison.py`
+
+what I need is a python script that compares two DXF files that are meant for laser cutting or waterjet cutting. It should highlight differences between the files.
+
+Use argparse for the user to specify two DXF file paths, plus a third optional output file path.
+
+The output path should be a SVG file. If it is not specified, then just use the first file's path but replace the file extension with `.compare.svg`
+
+Read in the two DXF files. Use the code similar (or identical) to `dxf_to_laser_svg\dxf_to_laser_svg.py` (do not link or reference the file), generate SVG elements (internally) for both (each set is in a group first, and the group in a layer). All the lines should be specified as 0.05mm thick (and add an option to use hairline thickness). Use the colours `Royal Blue #0066FF` for one file and `Magenta #CC00CC` for the other file.
+
+using the top left coordinate, the first file's SVG elements as the "ground truth", move the entirety of the second file's SVG elements such that the two should overlap. This might not cause enough of a overlap so you need to do this for all 4 possible rotations (0, 90, 180, 270 degrees). Do not attempt any mirroring or re-scaling. Find the best orientation.
+
+To do the above, I would actually ask you to render both sets of SVGs, as black-and-white lines, on a canvas that is enough for both images at 400 DPI, with 1mm thick lines. Then do template matching (cv2). This can determine the correct orientation.
+
+When you have the two rendered images both in the correct orientation, line them up and do an XOR. The result should have red highlighting areas of interest.
+
+Once the orientation is found, apply it to the second layer of SVG elements, line up the two layers, embed the generate XOR red result to the bottom of the SVG layer stack, making sure it is scaled and aligned with the SVG layers. Generate the final file to the output file path.
+
+Let me know if there's problems in my logic too
