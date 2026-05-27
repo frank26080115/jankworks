@@ -15,6 +15,9 @@ from typing import Any, Iterator
 
 
 MARKDOWN_LINK_TARGET_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+MARKDOWN_HEADING_RE = re.compile(r"^\s*#{1,6}\s+\S")
+OPEN_TABS_HEADING_RE = re.compile(r"^\s*##\s+Open tabs:\s*$")
+FENCED_CODE_BLOCK_RE = re.compile(r"^\s{0,3}(?:```|~~~)")
 FILE_REFERENCE_RE = re.compile(
     r"""
     (?:
@@ -129,6 +132,13 @@ class GitCommit:
     message: str
 
 
+@dataclass(frozen=True)
+class ProjectFileReference:
+    path: Path
+    relative: Path
+    is_bare: bool = False
+
+
 def subtract_months(value: date, months: int) -> date:
     month = value.month - months
     year = value.year
@@ -188,6 +198,46 @@ def timestamp_sort_key(value: str) -> tuple[int, str]:
         return (0, parse_timestamp(value).isoformat())
     except (TypeError, ValueError, AttributeError):
         return (1, str(value))
+
+
+def strip_open_tabs_section(text: str) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = normalized.split("\n")
+    result: list[str] = []
+    in_code_block = False
+    removed = False
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        if FENCED_CODE_BLOCK_RE.match(line):
+            in_code_block = not in_code_block
+            result.append(line)
+            index += 1
+            continue
+
+        if not in_code_block and OPEN_TABS_HEADING_RE.match(line):
+            end = index + 1
+            section_in_code_block = False
+            while end < len(lines):
+                section_line = lines[end]
+                if FENCED_CODE_BLOCK_RE.match(section_line):
+                    section_in_code_block = not section_in_code_block
+                elif not section_in_code_block and MARKDOWN_HEADING_RE.match(section_line):
+                    break
+                end += 1
+
+            if end < len(lines):
+                if result and result[-1] and lines[end].strip():
+                    result.append("")
+                index = end
+                removed = True
+                continue
+
+        result.append(line)
+        index += 1
+
+    return "\n".join(result) if removed else text
 
 
 def path_key(path: Path | str) -> str:
@@ -271,11 +321,40 @@ def has_dot_directory(relative_path: Path) -> bool:
     return any(part.startswith(".") for part in relative_path.parts[:-1])
 
 
-def project_file_from_raw_path(raw_path: str, project_root: Path) -> tuple[Path, Path] | None:
+def short_name_key(file_name: str) -> str:
+    return os.path.normcase(file_name)
+
+
+def is_bare_file_name(path_text: str) -> bool:
+    return (
+        not re.match(r"^(?:[A-Za-z]:|/[A-Za-z]:|/)", path_text)
+        and "/" not in path_text
+        and "\\" not in path_text
+    )
+
+
+def find_project_files_by_name(file_name: str, project_root: Path) -> list[Path]:
+    matches: list[Path] = []
+    file_name_key = os.path.normcase(file_name)
+
+    for directory, dirnames, filenames in os.walk(project_root):
+        dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
+
+        directory_path = Path(directory)
+        for filename in sorted(filenames):
+            if os.path.normcase(filename) != file_name_key:
+                continue
+            matches.append(resolve_existing_or_future_path(directory_path / filename))
+
+    return matches
+
+
+def project_file_from_raw_path(raw_path: str, project_root: Path) -> ProjectFileReference | None:
     cleaned = normalize_markdown_path(raw_path)
     if not cleaned:
         return None
 
+    is_bare = is_bare_file_name(cleaned)
     candidate = Path(cleaned).expanduser()
     if not candidate.is_absolute():
         candidate = project_root / candidate
@@ -285,7 +364,49 @@ def project_file_from_raw_path(raw_path: str, project_root: Path) -> tuple[Path,
     if relative is None or has_dot_directory(relative):
         return None
 
-    return candidate, relative
+    return ProjectFileReference(candidate, relative, is_bare)
+
+
+def best_project_file_by_name(file_name: str, project_root: Path) -> ProjectFileReference | None:
+    best: ProjectFileReference | None = None
+
+    for candidate in find_project_files_by_name(file_name, project_root):
+        relative = relative_to_project(candidate, project_root)
+        if relative is None or has_dot_directory(relative):
+            continue
+
+        reference = ProjectFileReference(candidate, relative)
+        if best is None or len(reference.relative.parts) > len(best.relative.parts):
+            best = reference
+
+    return best
+
+
+def remember_short_name_target(
+    reference: ProjectFileReference,
+    short_name_paths: dict[str, ProjectFileReference],
+) -> None:
+    key = short_name_key(reference.relative.name)
+    existing = short_name_paths.get(key)
+    if existing is None or len(reference.relative.parts) > len(existing.relative.parts):
+        short_name_paths[key] = reference
+
+
+def add_project_file(
+    task: CodexTask,
+    reference: ProjectFileReference,
+    file_tasks: dict[str, list[CodexTask]],
+    file_paths: dict[str, Path],
+) -> None:
+    relative_text = reference.relative.as_posix()
+    if relative_text not in task.files:
+        task.files.append(relative_text)
+
+    key = path_key(reference.path)
+    file_paths.setdefault(key, reference.path)
+    tasks = file_tasks.setdefault(key, [])
+    if not any(existing is task for existing in tasks):
+        tasks.append(task)
 
 
 def add_touched_file(
@@ -294,22 +415,24 @@ def add_touched_file(
     project_root: Path,
     file_tasks: dict[str, list[CodexTask]],
     file_paths: dict[str, Path],
+    bare_file_tasks: dict[str, list[CodexTask]],
+    bare_file_names: dict[str, str],
+    short_name_paths: dict[str, ProjectFileReference],
 ) -> bool:
-    resolved = project_file_from_raw_path(raw_path, project_root)
-    if resolved is None:
+    reference = project_file_from_raw_path(raw_path, project_root)
+    if reference is None:
         return False
 
-    candidate, relative = resolved
-    relative_text = relative.as_posix()
-    if relative_text not in task.files:
-        task.files.append(relative_text)
+    if reference.is_bare:
+        key = short_name_key(reference.relative.name)
+        bare_file_names.setdefault(key, reference.relative.name)
+        tasks = bare_file_tasks.setdefault(key, [])
+        if not any(existing is task for existing in tasks):
+            tasks.append(task)
+        return True
 
-    key = path_key(candidate)
-    file_paths.setdefault(key, candidate)
-    tasks = file_tasks.setdefault(key, [])
-    if not any(existing is task for existing in tasks):
-        tasks.append(task)
-
+    add_project_file(task, reference, file_tasks, file_paths)
+    remember_short_name_target(reference, short_name_paths)
     return True
 
 
@@ -319,9 +442,49 @@ def add_touched_files_from_text(
     project_root: Path,
     file_tasks: dict[str, list[CodexTask]],
     file_paths: dict[str, Path],
+    bare_file_tasks: dict[str, list[CodexTask]],
+    bare_file_names: dict[str, str],
+    short_name_paths: dict[str, ProjectFileReference],
 ) -> None:
     for reference in file_references_from_text(text):
-        add_touched_file(task, reference, project_root, file_tasks, file_paths)
+        add_touched_file(
+            task,
+            reference,
+            project_root,
+            file_tasks,
+            file_paths,
+            bare_file_tasks,
+            bare_file_names,
+            short_name_paths,
+        )
+
+
+def resolve_bare_file_tasks(
+    project_root: Path,
+    file_tasks: dict[str, list[CodexTask]],
+    file_paths: dict[str, Path],
+    bare_file_tasks: dict[str, list[CodexTask]],
+    bare_file_names: dict[str, str],
+    short_name_paths: dict[str, ProjectFileReference],
+) -> None:
+    for key, tasks in bare_file_tasks.items():
+        file_name = bare_file_names[key]
+        target = short_name_paths.get(key)
+
+        if target is None:
+            root_candidate = resolve_existing_or_future_path(project_root / file_name)
+            root_relative = relative_to_project(root_candidate, project_root)
+            if root_candidate.is_file() and root_relative is not None and not has_dot_directory(root_relative):
+                target = ProjectFileReference(root_candidate, root_relative)
+
+        if target is None:
+            target = best_project_file_by_name(file_name, project_root)
+
+        if target is None:
+            continue
+
+        for task in tasks:
+            add_project_file(task, target, file_tasks, file_paths)
 
 
 def session_date_from_path(jsonl_file: Path, sessions_dir: Path) -> date | None:
@@ -431,6 +594,9 @@ def scan_codex_tasks(
 ) -> tuple[dict[str, list[CodexTask]], dict[str, Path], list[CodexTask]]:
     file_tasks: dict[str, list[CodexTask]] = {}
     file_paths: dict[str, Path] = {}
+    bare_file_tasks: dict[str, list[CodexTask]] = {}
+    bare_file_names: dict[str, str] = {}
+    short_name_paths: dict[str, ProjectFileReference] = {}
     all_tasks: list[CodexTask] = []
 
     for jsonl_file in jsonl_files:
@@ -450,7 +616,7 @@ def scan_codex_tasks(
                 timestamp = str(record.get("timestamp", ""))
                 current_task = CodexTask(
                     date=format_timestamp(timestamp),
-                    user_message=str(payload.get("message", "")),
+                    user_message=strip_open_tabs_section(str(payload.get("message", ""))),
                 )
                 continue
 
@@ -463,24 +629,69 @@ def scan_codex_tasks(
                 changes = payload.get("changes", {})
                 if isinstance(changes, dict):
                     for changed_path in changes:
-                        add_touched_file(current_task, changed_path, project_root, file_tasks, file_paths)
+                        add_touched_file(
+                            current_task,
+                            changed_path,
+                            project_root,
+                            file_tasks,
+                            file_paths,
+                            bare_file_tasks,
+                            bare_file_names,
+                            short_name_paths,
+                        )
                 for stream_name in ("stdout", "stderr"):
                     stream_text = payload.get(stream_name)
                     if isinstance(stream_text, str):
-                        add_touched_files_from_text(current_task, stream_text, project_root, file_tasks, file_paths)
+                        add_touched_files_from_text(
+                            current_task,
+                            stream_text,
+                            project_root,
+                            file_tasks,
+                            file_paths,
+                            bare_file_tasks,
+                            bare_file_names,
+                            short_name_paths,
+                        )
 
             if record_type == "event_msg" and payload_type == "agent_message":
                 message = payload.get("message", "")
                 if isinstance(message, str):
-                    add_touched_files_from_text(current_task, message, project_root, file_tasks, file_paths)
+                    add_touched_files_from_text(
+                        current_task,
+                        message,
+                        project_root,
+                        file_tasks,
+                        file_paths,
+                        bare_file_tasks,
+                        bare_file_names,
+                        short_name_paths,
+                    )
 
             reply_text = final_answer_text(record)
             if reply_text is not None:
-                add_touched_files_from_text(current_task, reply_text, project_root, file_tasks, file_paths)
+                add_touched_files_from_text(
+                    current_task,
+                    reply_text,
+                    project_root,
+                    file_tasks,
+                    file_paths,
+                    bare_file_tasks,
+                    bare_file_names,
+                    short_name_paths,
+                )
                 current_task.add_final_reply(str(record.get("timestamp", "")), reply_text)
 
         if current_task is not None:
             all_tasks.append(current_task)
+
+    resolve_bare_file_tasks(
+        project_root,
+        file_tasks,
+        file_paths,
+        bare_file_tasks,
+        bare_file_names,
+        short_name_paths,
+    )
 
     return file_tasks, file_paths, all_tasks
 
@@ -576,7 +787,7 @@ def codex_task_history_item(task: CodexTask) -> dict[str, Any]:
     return {
         "timestamp": task.date,
         "type": "codex_task",
-        "user_prompt": text_to_history_value(task.user_message),
+        "user_prompt": text_to_history_value(strip_open_tabs_section(task.user_message)),
         "agent_reply": text_to_history_value(task.final_reply_message),
         "files": task.files,
     }
@@ -631,6 +842,10 @@ def merge_text_field(existing: dict[str, Any], new_item: dict[str, Any], field_n
 
     existing_text = history_value_to_text(existing_value)
     new_text = history_value_to_text(new_value)
+    if field_name == "user_prompt" and strip_open_tabs_section(existing_text) == new_text and existing_text != new_text:
+        existing[field_name] = new_value
+        return
+
     if existing_text == new_text and existing_value != new_value:
         existing[field_name] = new_value
         return
@@ -778,6 +993,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def print_progress(message: str) -> None:
+    print(message, flush=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -793,15 +1012,21 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"invalid --start-date: {exc}")
 
     history_root = project_root / ".codex_history"
+    print_progress(f"Using project root: {project_root}")
+    print_progress(f"Ensuring history root exists: {history_root}")
     history_root.mkdir(parents=True, exist_ok=True)
 
+    print_progress(f"Finding Codex session logs in {codex_dir / 'sessions'} since {start.isoformat()}...")
     jsonl_files = find_session_jsonl_files(project_root, codex_dir, start)
-    file_tasks, file_paths, all_tasks = scan_codex_tasks(jsonl_files, project_root)
-    written, unchanged, skipped = write_history_files(project_root, history_root, file_tasks, file_paths)
+    print_progress(f"Matched {len(jsonl_files)} Codex session log(s).")
 
-    print(f"Matched {len(jsonl_files)} Codex session log(s).")
+    print_progress("Parsing Codex tasks and resolving touched files...")
+    file_tasks, file_paths, all_tasks = scan_codex_tasks(jsonl_files, project_root)
     print(f"Parsed {len(all_tasks)} Codex task(s).")
     print(f"Found {len(file_tasks)} touched project file(s).")
+
+    print_progress("Writing history files and collecting git blame commits...")
+    written, unchanged, skipped = write_history_files(project_root, history_root, file_tasks, file_paths)
     print(f"Wrote {written} history file(s), left {unchanged} unchanged, skipped {skipped}.")
     print(f"History root: {history_root}")
 
