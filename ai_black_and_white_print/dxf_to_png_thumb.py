@@ -5,6 +5,8 @@ import math
 import ezdxf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Arc, Circle
+from utils import crop_to_content_square
+from PIL import Image
 
 
 # =========================
@@ -12,6 +14,7 @@ from matplotlib.patches import Arc, Circle
 # =========================
 
 OUTPUT_SIZE_PX = 150
+RENDER_SIZE_PX = 300
 OUTPUT_DPI = 100
 PADDING_RATIO = 0.05
 
@@ -100,13 +103,43 @@ def arc_bounds(cx, cy, r, start_deg, end_deg):
 # =========================
 
 def main():
-    parser = argparse.ArgumentParser(description="Render DXF to 150x150 PNG (black lines on white)")
-    parser.add_argument("input_dxf", help="Input DXF file")
+    parser = argparse.ArgumentParser(
+        description="Render DXF to 150x150 PNG (black lines on white)"
+    )
+    parser.add_argument("input_path", help="Input DXF file or directory")
     args = parser.parse_args()
 
-    input_path = args.input_dxf
+    input_path = args.input_path
 
-    dxf_to_img(input_path, None)
+    if os.path.isdir(input_path):
+        print(f"[INFO] Input is directory: {input_path}")
+
+        dxf_files = [
+            f for f in os.listdir(input_path)
+            if f.lower().endswith(".dxf")
+        ]
+
+        if not dxf_files:
+            print("[WARNING] No DXF files found in directory.")
+            return
+
+        for filename in dxf_files:
+            full_path = os.path.join(input_path, filename)
+            print(f"[BATCH] Processing: {full_path}")
+            try:
+                dxf_to_img(full_path, None)
+            except Exception as e:
+                print(f"[ERROR] Failed on {filename}: {e}")
+
+        print("[DONE] Batch processing complete.")
+
+    elif os.path.isfile(input_path):
+        print(f"[INFO] Input is single file: {input_path}")
+        dxf_to_img(input_path, None)
+
+    else:
+        print("[ERROR] Provided path does not exist.")
+
 
 def dxf_to_img(input_path, output_path):
     if output_path is None:
@@ -121,7 +154,7 @@ def dxf_to_img(input_path, output_path):
         print(f"       - {layer.dxf.name}")
 
     fig, ax = plt.subplots(
-        figsize=(OUTPUT_SIZE_PX / OUTPUT_DPI, OUTPUT_SIZE_PX / OUTPUT_DPI),
+        figsize=(RENDER_SIZE_PX / OUTPUT_DPI, RENDER_SIZE_PX / OUTPUT_DPI),
         dpi=OUTPUT_DPI
     )
 
@@ -281,7 +314,7 @@ def dxf_to_img(input_path, output_path):
     ax.set_ylim(cy - half, cy + half)
 
     # Scale line width AFTER size known
-    linewidth = 1 # size * 0.005
+    linewidth = 1.5 # size * 0.005
     print(f"[INFO] Using linewidth={linewidth}")
 
     for line in ax.lines:
@@ -293,15 +326,28 @@ def dxf_to_img(input_path, output_path):
     ax.set_aspect("equal", adjustable="box")
     ax.axis("off")
 
-    print(f"[INFO] Saving output PNG: {output_path}")
+    temp_path = os.path.splitext(output_path)[0] + "_temp.png"
+
+    #print(f"[INFO] Saving intermediate PNG (300x300): {temp_path}")
+
     plt.savefig(
-        output_path,
+        temp_path,
         dpi=OUTPUT_DPI,
         bbox_inches="tight",
         pad_inches=0,
         facecolor="white",
     )
     plt.close(fig)
+
+    print("[INFO] Post-processing with crop_to_content_square")
+
+    with Image.open(temp_path) as img:
+        img = img.convert("L")
+        processed = crop_to_content_square(img)
+        # Final size enforcement
+        processed = processed.resize((150, 150), Image.LANCZOS)
+        processed.save(output_path, format="PNG")
+    os.remove(temp_path)
 
     print("[DONE]")
     return output_path

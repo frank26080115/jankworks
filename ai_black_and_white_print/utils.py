@@ -1,7 +1,7 @@
 import ctypes
 from io import BytesIO
 from ctypes import wintypes
-import sys
+import sys, os, tempfile
 import cv2
 import numpy as np
 from PIL import Image, ImageGrab, ImageOps, ImageChops, ImageDraw
@@ -116,7 +116,7 @@ def show_image_with_cv2(image: Image.Image) -> None:
     cv2.destroyAllWindows()
 
 
-def crop_to_content_square(img: Image.Image) -> Image.Image:
+def crop_to_content_square_old(img: Image.Image) -> Image.Image:
     """
     Crop as much outer white space as possible, then pad to square.
     Assumes white background, black foreground.
@@ -136,3 +136,100 @@ def crop_to_content_square(img: Image.Image) -> Image.Image:
     square.paste(img, ((size - w) // 2, (size - h) // 2))
 
     return square
+
+
+def crop_to_content_square(
+    img: Image.Image,
+    target_ratio: float = 1.5,
+    auto_rotate_threshold: float = 0.9
+) -> Image.Image:
+    """
+    Crop outer white space, enforce target aspect ratio,
+    optionally rotate tall content, then pad to square.
+
+    target_ratio: desired width / height of content
+    auto_rotate_threshold: if detected w/h < this, rotate 90° CW
+    """
+
+    # Ensure grayscale
+    if img.mode != "L":
+        img = img.convert("L")
+
+    # Invert so content becomes white for bbox detection
+    inverted = ImageOps.invert(img)
+    bbox = inverted.getbbox()
+
+    if bbox:
+        img = img.crop(bbox)
+
+    w, h = img.size
+    if h == 0 or w == 0:
+        return img  # avoid division errors
+
+    current_ratio = w / h
+
+    # 🔄 Auto-rotate tall/narrow parts
+    if current_ratio < auto_rotate_threshold:
+        img = img.rotate(-90, expand=True)  # clockwise
+        w, h = img.size
+        current_ratio = w / h
+
+    # 📏 Enforce target aspect ratio (width / height)
+    if current_ratio < target_ratio:
+        # Too tall — need to expand width
+        new_w = int(h * target_ratio)
+        padded = Image.new("L", (new_w, h), 255)
+        padded.paste(img, ((new_w - w) // 2, 0))
+        img = padded
+
+    elif current_ratio > target_ratio:
+        # Too wide — need to expand height
+        new_h = int(w / target_ratio)
+        padded = Image.new("L", (w, new_h), 255)
+        padded.paste(img, (0, (new_h - h) // 2))
+        img = padded
+
+    # ⬜ Pad to square
+    w, h = img.size
+    size = max(w, h)
+
+    square = Image.new("L", (size, size), 255)
+    square.paste(img, ((size - w) // 2, (size - h) // 2))
+
+    return square
+
+
+def crop_png_to_content_square(file_path: str) -> None:
+    """
+    Open a PNG file, run crop_to_content_square on it,
+    ensure final image is square, and overwrite the file safely.
+    """
+
+    if not file_path.lower().endswith(".png"):
+        raise ValueError("File must be a PNG.")
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"{file_path} does not exist.")
+
+    # Open image
+    with Image.open(file_path) as img:
+        img = img.convert("L")  # ensure grayscale
+
+        processed = crop_to_content_square(img)
+
+        # 🔒 Absolute guarantee it's square
+        w, h = processed.size
+        if w != h:
+            size = max(w, h)
+            square = Image.new("L", (size, size), 255)
+            square.paste(processed, ((size - w) // 2, (size - h) // 2))
+            processed = square
+
+        # Write to temporary file first (safer than direct overwrite)
+        dir_name = os.path.dirname(file_path)
+        with tempfile.NamedTemporaryFile(delete=False, dir=dir_name, suffix=".png") as tmp:
+            temp_path = tmp.name
+            processed.save(temp_path, format="PNG")
+
+    # Replace original file atomically
+    os.replace(temp_path, file_path)

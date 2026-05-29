@@ -3,7 +3,7 @@ import os
 import shutil
 from PIL import Image
 
-from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square
+from utils import load_input_image, copy_image_to_clipboard_windows, show_image_with_cv2, crop_to_content_square, crop_png_to_content_square
 from ai_bw_convert import image_to_line_art
 from bw_enough_check import already_black_and_white_enough
 from dither_thumbnail import dither_convert
@@ -40,6 +40,11 @@ def main() -> None:
         action='store_true',
         help="Add an outline if using dithering",
     )
+    parser.add_argument(
+        "--force_redo",
+        action='store_true',
+        help="Even if image is already black and white, redo the generation",
+    )
 
     args = parser.parse_args()
     input_path = args.input_image
@@ -48,6 +53,7 @@ def main() -> None:
         # Handle DXF files early because they need a dedicated conversion path.
         if os.path.splitext(input_path)[1].lower() == ".dxf":
             output_path = dxf_to_img(input_path)
+            crop_png_to_content_square(output_path)
             if args.output_image:
                 shutil.move(os.path.abspath(output_path), os.path.abspath(args.output_image))
                 print(f"Image saved to `{args.output_image}`")
@@ -58,7 +64,10 @@ def main() -> None:
                 show_image_with_cv2(img)
             exit(0)
 
-    result, output_path = already_black_and_white_enough(args.input_image, args.output_image)
+    if not args.force_redo:
+        result, output_path = already_black_and_white_enough(args.input_image, args.output_image)
+    else:
+        result = False
 
     if result:
         print(f"Image converted to B&W without using AI")
