@@ -52,12 +52,16 @@ INJECTED_CSS = """
     width: 0;
   }
 
-  td:last-child {
+  td:nth-child(2) {
     padding-left: 0;
     padding-right: 0;
     border: none;
     width: 0;
     min-width: 50mm;
+  }
+
+  td:nth-child(n+3):nth-child(-n+10) {
+    display: none;
   }
 
   td p span img {
@@ -66,10 +70,6 @@ INJECTED_CSS = """
     height: auto;
     object-fit: contain;
     display: block;
-  }
-
-  td.left-most-column {
-    display: none;
   }
 
   .chkbox-column,
