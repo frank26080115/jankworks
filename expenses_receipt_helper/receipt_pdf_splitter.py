@@ -50,6 +50,7 @@ def crop_non_white_simple(pil_img):
 
 
 def crop_non_white(pil_img):
+    return crop_non_white_simple(pil_img)
     RADIUS = 5
     MIN_NEIGHBORS = 5
     PAD = 5
@@ -65,6 +66,10 @@ def crop_non_white(pil_img):
 
     if not black.any():
         return pil_img
+
+    #import cv2
+    #cv2.imshow("img", cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR))
+    #cv2.waitKey(0)
 
     # --- detect dust pixels ---
     dust = np.zeros_like(black, dtype=bool)
@@ -227,7 +232,7 @@ def main(pdf_path):
         pix = page.get_pixmap(dpi=300)
         img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
 
-        img = crop_non_white(img)
+        #img = crop_non_white(img)
 
         img = deskew(img)
 

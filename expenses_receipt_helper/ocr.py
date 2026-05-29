@@ -52,7 +52,7 @@ def ocr_image_chunks(img: Image.Image) -> List[str]:
     Returns a list of trimmed, non-empty strings.
     """
     pytesseract.pytesseract.tesseract_cmd = (
-        r"C:\ProgramFiles\Tesseract-OCR\tesseract.exe"
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     )
 
     chunks = split_image_into_chunks(img)
