@@ -1,0 +1,19 @@
+I need a python script, it runs on Windows, I will hard code a path to a `ffmpeg.exe`
+
+I specify a video file path, a starting time and an ending time, using argparse
+
+There will be a directory created for intermediate and final output files, where the original video file is, named after the video file, but without extension and ending in "_output", we'll call this `output_dir`
+
+Break down the specified section of the video into sequencial frames, names sequencially with 8 digits, zero padded, `.png` format. Save these to `output_dir/frames`
+
+Then iterate through all frames in sequence, calculate the average optical flow in X and Y, write the two values as two lines in a text file inside `output_dir/frames`, named after the frame, ending in `.txt`. Of course the first file will simply say `0\n0\n`
+
+Track the maximum X direction optical flow amount
+
+Then, iterate through all the frames again. At the top of every frame, draw two 6x6 pixel squares as markers, one marker is green and is always centered, the draw a red one and it is placed a horizontal distance away from the green mark. The distance is up to 100 pixels away, and 100 pixels corresponds to the remembered maximum optical flow amount.
+
+The video is dashcam footage. So if the car is turning right, the optical flow will seem to flow left, but I want the marker to go right. If this is wrong, tell me.
+
+This is drawn for every frame and saved in `output_dir/frames_indicator` as PNG
+
+Reassemble all frames in `output_dir/frames_indicator` as a h.264 or h.265 MP4 video file, but 1080p, restore the audio from that section of video (use `output_dir` as a temporary place to extract audio if you need to). The video is saved as `output_dir`/with_indicator.mp4`
